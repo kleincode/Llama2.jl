@@ -1,0 +1,7 @@
+name = "Llama2"
+uuid = "da48e45f-f66c-43e6-bf90-6ea451e08a90"
+authors = ["Thomas Fischer <t.fischer.1@campus.tu-berlin.de>", "Johanna Giese <j.giese@campus.tu-berlin.de>", "Janik Häußer <janik.haeusser@campus.tu-berlin.de>", "Felix Kleinsteuber <f.kleinsteuber@campus.tu-berlin.de>"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.10"
