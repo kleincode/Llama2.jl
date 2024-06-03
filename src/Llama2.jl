@@ -1,8 +1,7 @@
 module Llama2
 
-# Write your package code here.
-timesthree(x) = 3 * x
+include("tokenizer.jl")
 
-export timesthree
+export Tokenizer
 
 end
