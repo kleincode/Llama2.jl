@@ -14,6 +14,7 @@ using Test
 
             for i in 1:3
                 @test tokenizer.index_to_token[i] == tokens[i]
+                @test tokenizer.token_to_index[tokens[i]] == i
                 @test tokenizer.vocab_scores[i] == scores[i]
             end
         end
