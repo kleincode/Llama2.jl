@@ -2,6 +2,6 @@
 *.jl.cov
 *.jl.mem
 /Manifest.toml
-/docs/Manifest.toml
+#/docs/Manifest.toml # removed according to https://discourse.julialang.org/t/documenter-jl-expects-my-local-project-to-be-registered/101437/2
 /docs/build/
 .vscode
