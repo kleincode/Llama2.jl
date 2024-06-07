@@ -71,8 +71,8 @@ If the previous token is BOS, leading spaces are removed.
 
 llama2.c correspondence: decode (l. 418)
 """
-function decode(tokenizer::Tokenizer, prev_token::Int32, token::Int32)
-    piece = tokenizer.index_to_token[token]
+function decode(tokenizer::Tokenizer, prev_token::Int, token::Int)
+    piece = tokenizer.index_to_token[token + 1]
     # following BOS (1) token, sentencepiece decoder strips any leading whitespace
     if prev_token == BOS_TOKEN && piece[1] == ' '
         piece = piece[2:end]
@@ -80,7 +80,7 @@ function decode(tokenizer::Tokenizer, prev_token::Int32, token::Int32)
     # careful, some tokens esignate raw bytes, and look like e.g. '<0x01>'
     # parse this and convert and return the actual byte
     if startswith(piece, "<0x") && piece[end] == '>'
-        return Char(parse(Int, piece[2:(end - 1)]; base=16))
+        return string(Char(parse(Int, piece[4:(end - 1)]; base=16)))
     else
         return piece
     end
