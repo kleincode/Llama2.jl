@@ -45,7 +45,7 @@ llama.c correspondence: RunState (l. 50)
     k::Vector{Float32}   # key (dim,)
     v::Vector{Float32}   # value (dim,)
     att::Array{Float32,2} # buffer for scores/attention values (n_heads, seq_len)
-    logits::Array{Float32} # output logits
+    logits::Array{Float32} # output logits, not sure which dimensions
 
     # kv cache
     key_cache::Array{Float32,3}  # (layer, seq_len, dim)
@@ -85,11 +85,14 @@ function RunState(config::Config)
         Array{Float32}(undef, config.dim),
         Array{Float32}(undef, config.hidden_dim),
         Array{Float32}(undef, config.hidden_dim),
+        Array{Float32}(undef, config.dim), # q
+        # in llama2.c k and v are not defined, I chose to do it hyperparameters
         Array{Float32}(undef, config.dim),
+        Array{Float32}(undef, config.dim),
+        Array{Float32}(undef, config.n_heads, config.seq_len),  # rms_att_weight
+        Array{Float32}(undef, config.vocab_size),   # logits
         Array{Float32}(undef, config.n_layers, config.seq_len, kv_dim),
         Array{Float32}(undef, config.n_layers, config.seq_len, kv_dim),
-        Array{Float32}(undef, config.seq_len, config.n_heads),
-        Array{Float32}(undef, config.vocab_size),
     )
 end
 
