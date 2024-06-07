@@ -34,7 +34,7 @@ Initial parameters for the run state
 
 llama.c correspondence: RunState (l. 50)
 """
-@kwdef struct RunState  # using @kwdef for clearer parameter initialization in the outer constructor
+struct RunState  # using @kwdef for clearer parameter initialization in the outer constructor
     # current way of activations
     x::Vector{Float32}  # activation at current time stamp (dim,)
     xb::Vector{Float32}  # same, but inside a residual branch (dim,)
