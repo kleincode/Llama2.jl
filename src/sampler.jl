@@ -34,6 +34,8 @@ struct Sampler
 end
 
 """
+    Sampler()
+
 Create Sampler with default parameters
 """
 function Sampler()
@@ -41,6 +43,8 @@ function Sampler()
 end
 
 """
+    (sampler::Sampler)(logits::Vector{Float32})
+
 Sample the next token (id) based on the logits and the sampler parameters.
 """
 function (sampler::Sampler)(logits::Vector{Float32})
@@ -69,6 +73,8 @@ function (sampler::Sampler)(logits::Vector{Float32})
 end
 
 """
+    sample_argmax(logits::Vector{Float32})
+
 Return the index that has the highest probability
 """
 function sample_argmax(logits::Vector{Float32})
@@ -76,6 +82,8 @@ function sample_argmax(logits::Vector{Float32})
 end
 
 """
+    sample_mult(probabilities::Vector{Float32}, coin::Float32)
+
 Sample index from probabilities (they must sum to 1!).
 Coin is a random number in [0, 1).
 Find the index that coin falls into.
@@ -94,6 +102,8 @@ function sample_mult(probabilities::Vector{Float32}, coin::Float32)
 end
 
 """
+    sample_topp(probabilities::Vector{Float32}, topp::Float32, coin::Float32)
+
 Top-p sampling (or "nucleus sampling") samples from the smallest set of
 tokens that exceed probability topp. This way we never sample tokens that
 have very low probabilities and are less likely to go "off the rails".
@@ -134,6 +144,8 @@ function sample_topp(probabilities::Vector{Float32}, topp::Float32, coin::Float3
 end
 
 """
+    softmax(values::Vector{Float32})
+    
 Transform logits into probabilities.
 """
 function softmax(values::Vector{Float32})
