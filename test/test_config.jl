@@ -4,7 +4,7 @@ using Test
 @testset "Config" begin
     @testset "Initialize configuration" begin
         @testset "Good case" begin
-            # inititalization should not throw an error
+            # initialization should not throw an error
             dim::Int32 = 5
             hidden_dim::Int32 = 10
             n_layers::Int32 = 3
@@ -17,7 +17,7 @@ using Test
         end
 
         @testset "Dimension is <= 0" begin
-            # inititalization should throw an error
+            # initialization should throw an error
             dim::Int32 = 0
             hidden_dim::Int32 = 10
             n_layers::Int32 = 3
@@ -32,7 +32,7 @@ using Test
         end
 
         @testset "Hidden dimension is <= 0" begin
-            # inititalization should throw an error
+            # initialization should throw an error
             dim::Int32 = 5
             hidden_dim::Int32 = 0
             n_layers::Int32 = 3
@@ -47,7 +47,7 @@ using Test
         end
 
         @testset "Number of layers is <= 0" begin
-            # inititalization should throw an error
+            # initialization should throw an error
             dim::Int32 = 5
             hidden_dim::Int32 = 10
             n_layers::Int32 = 0
@@ -62,7 +62,7 @@ using Test
         end
 
         @testset "Number of query heads is <= 0" begin
-            # inititalization should throw an error
+            # initialization should throw an error
             dim::Int32 = 5
             hidden_dim::Int32 = 10
             n_layers::Int32 = 3
@@ -77,7 +77,7 @@ using Test
         end
 
         @testset "Number of key/value heads is <= 0" begin
-            # inititalization should throw an error
+            # initialization should throw an error
             dim::Int32 = 5
             hidden_dim::Int32 = 10
             n_layers::Int32 = 3
@@ -92,7 +92,7 @@ using Test
         end
 
         @testset "Vocabulary is empty" begin
-            # inititalization should throw an error
+            # initialization should throw an error
             dim::Int32 = 5
             hidden_dim::Int32 = 10
             n_layers::Int32 = 3
@@ -107,7 +107,7 @@ using Test
         end
 
         @testset "Sequence length is <= 0" begin
-            # inititalization should throw an error
+            # initialization should throw an error
             dim::Int32 = 5
             hidden_dim::Int32 = 10
             n_layers::Int32 = 3

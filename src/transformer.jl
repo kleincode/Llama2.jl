@@ -1,9 +1,9 @@
 """
 Initial parameters for the transformer weights
 
-llama.c correspondence: TrasformerWeights (l. 29)
+llama2.c correspondence: TransformerWeights (l. 29)
 """
-struct TransformerWeights    # using @kwdef for clearer parameter initialization in the outer constructor 
+struct TransformerWeights
     # token embedding table
     token_embedding_table::Matrix{Float32} # (vocab_size, dim)
 
@@ -32,9 +32,9 @@ end
 """
 Initial parameters for the run state
 
-llama.c correspondence: RunState (l. 50)
+llama2.c correspondence: RunState (l. 50)
 """
-struct RunState  # using @kwdef for clearer parameter initialization in the outer constructor
+struct RunState
     # current way of activations
     x::Vector{Float32}  # activation at current time stamp (dim,)
     xb::Vector{Float32}  # same, but inside a residual branch (dim,)
@@ -55,7 +55,7 @@ end
 """
 Initial parameters for the transformer
 
-llama.c correspondence: Transformer (l. 67)
+llama2.c correspondence: Transformer (l. 67)
 """
 struct Transformer
     config::Config # hyperparameters of the architecture
@@ -72,7 +72,7 @@ end
 Initialization of RunState based on Config
 - initialized as undefined arrays
 
-llama.c correspondence: malloc_run_state (l. 77)
+llama2.c correspondence: malloc_run_state (l. 77)
 """
 function RunState(config::Config)
     # calculation of kv_dim
@@ -85,10 +85,10 @@ function RunState(config::Config)
         Array{Float32}(undef, config.dim),
         Array{Float32}(undef, config.hidden_dim),
         Array{Float32}(undef, config.hidden_dim),
-        Array{Float32}(undef, config.dim), # q
-        # in llama2.c k and v are not defined, I chose to do it hyperparameters
-        Array{Float32}(undef, config.dim),
-        Array{Float32}(undef, config.dim),
+        Array{Float32}(undef, config.dim),  # q
+        # in llama2.c k and v are not defined
+        Array{Float32}(undef, config.dim),  # k
+        Array{Float32}(undef, config.dim),  # v
         Array{Float32}(undef, config.n_heads, config.seq_len),  # rms_att_weight
         Array{Float32}(undef, config.vocab_size),   # logits
         Array{Float32}(undef, config.n_layers, config.seq_len, kv_dim),
@@ -98,9 +98,9 @@ end
 
 """
 Initialize transformer weights based on Config
-- intitialized as undefined arrays
+- initialized as undefined arrays
 
-llama.c correspondence: memory_map_weights (l. 111)
+llama2.c correspondence: memory_map_weights (l. 111)
 """
 function TransformerWeights(config::Config)
     # calculation of head_size
