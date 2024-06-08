@@ -13,9 +13,10 @@ using Test
     end
 
     @testset "Softmax Tests" begin
-        logits = Float32[-1.2, 2.4, 8.5]
+        logits = Float32[-1.2, 1.2, 4.8, 2.4]
         probs = softmax(logits)
         @test sum(probs) ≈ 1.0
+        @test probs ≈ Float32[0.00221214, 0.02438485, 0.89244245, 0.08096055]
     end
 
     @testset "Sampling Tests" begin
@@ -25,20 +26,48 @@ using Test
             @test argmax_index == 4  # Index of the highest prob
         end
 
+        probabilities1 = Float32[0.03, 0.0, 0.07, 0.2, 0.05, 0.15, 0.2, 0.3]
+        probabilities2 = Float32[0.03, 0.07, 0.2, 0.05, 0.15, 0.2, 0.3, 0.0]
+        probabilities3 = Float32[1.0]
+        probabilities4 = Float32[0.5, 0.3, 0.21]
+
+        coin1 = Float32(0.4)
+        coin2 = Float32(0.1)
+        coin3 = Float32(0.0)
+        coin4 = Float32(0.99999)  
         @testset "sample_mult" begin
-            probabilities = Float32[0.03, 0.07, 0.2, 0.05, 0.15, 0.2, 0.3]
-            coin = Float32(0.42)  # coin lies between cumulative probs of 0.35 and 0.5
-            sampled_index = sample_mult(probabilities, coin)
-            @test sampled_index == 5  # Should select the 5th element
+            sampled_index_11 = sample_mult(probabilities1, coin1) 
+            @test sampled_index_11 == 6 
+            sampled_index_22 = sample_mult(probabilities2, coin2)
+            @test sampled_index_22 == 2
+            sampled_index_23 = sample_mult(probabilities2, coin3)
+            @test sampled_index_23 == 1
+            sampled_index_14 = sample_mult(probabilities1, coin4)
+            @test sampled_index_14 == 8
+            sampled_index_24 = sample_mult(probabilities2, coin4)
+            @test sampled_index_24 == 7
+            sampled_index_34 = sample_mult(probabilities3, coin4)
+            @test sampled_index_34 == 1
+            @test_throws ArgumentError sample_mult(probabilities4, coin4)
         end
 
+        topp1 = Float32(0.8) 
+        topp2 = Float32(0.0) 
+        topp3 = Float32(1.0)
+        topp4 = Float32(-11.11)
+
         @testset "sample_topp" begin
-            probabilities = Float32[0.03, 0.07, 0.1, 0.05, 0.25, 0.1, 0.2, 0.08, 0.12]
-            coin = Float32(0.4)
-            topp = Float32(0.7) # tops probability threshold
-            # 0.7 * 0.4 = 0.28 --> 0.25 < 0.28 < 0.45 --> 7th element
-            sampled_index = sample_topp(probabilities, topp, coin)
-            @test sampled_index == 7  # Should select the 7th element
+            sampled_index_111 = sample_topp(probabilities1, topp1, coin1)
+            # 0.8 * 0.4 = 0.32 --> 0.3 < 0.32 < 0.5 --> 4th element
+            @test sampled_index_111 == 4 
+            sampled_index_214 = sample_topp(probabilities2, topp1, coin4)
+            # 0.8 * 0.99999 ≈ 0.8 --> 0.7 < 0.8 < 0.85 --> 5th element
+            @test sampled_index_214 == 5
+            sampled_index_122 = sample_topp(probabilities1, topp2, coin2)
+            @test sampled_index_122 == 8
+            sampled_index_234 = sample_topp(probabilities2, topp3, coin4)
+            @test sampled_index_234 == 1
+            @test_throws ArgumentError sample_topp(probabilities3, topp4, coin4)
         end
     end
     @testset "Calling sampler object" begin
@@ -62,16 +91,16 @@ using Test
         @test 1 <= sampled_index_13 <= length(logits3)  
 
         sampled_index_21 = sampler2(logits1)
-        @test sampled_index_21 == 1 
+        @test sampled_index_21 == 10
         sampled_index_22 = sampler2(logits2)
-        @test sampled_index_22 == 9
+        @test sampled_index_22 == 1
         sampled_index_23 = sampler2(logits3)
         @test 1 <= sampled_index_23 <= length(logits3)   
 
         sampled_index_31 = sampler3(logits1)
-        @test sampled_index_31 <= 8
+        @test sampled_index_31 == 10
         sampled_index_32 = sampler3(logits2)
-        @test sampled_index_32 == 3
+        @test sampled_index_32 == 2
         sampled_index_33 = sampler3(logits3)
         @test 1 <= sampled_index_33 <= length(logits3)  
 
