@@ -1,18 +1,28 @@
+begin
 # Calculate the root mean square norm of a vector
-function rmsnorm(o::Array, x::Array, weight::Array, size::Int)
+function rmsnorm(x::Vector, weight::Vector)
+    size = length(x)
     # Calculate the sum of the squares
-    ss = 0.0
-    for j in 1:size
-        ss += x[j]^2
-    end
-    ss /= size
-    ss += 1e-5
-    ss = 1.0 / sqrt(ss)
-
-    # Calculate norm and scale
-    for j in 1:size
-        o[j] = weight[j] * (ss * x[j])
-    end
+    sum_squares = sum(x .^ 2) / size
+    sum_squares += 1e-5
+    sum_squares = 1.0 / sqrt(sum_squares) 
+    
+    o = weight .* (sum_squares .* x)
+    
+    return o
 end
 
-timestwo(x) = 2 * x
+
+# Calculate the softmax of a vector
+function softmax(x::Vector)::Vector{Float32}
+
+    # exp and sum
+    sum_exp = exp.(x .- maximum(x))
+
+    # normalize
+    res = sum_exp ./ sum(sum_exp)
+
+    return res
+end
+
+end

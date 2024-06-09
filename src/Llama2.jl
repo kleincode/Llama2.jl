@@ -6,6 +6,6 @@ include("math_llama.jl")
 timesthree(x) = 3 * x
 
 export timesthree
-export rmsnorm
+export rmsnorm, softmax
 
 end
