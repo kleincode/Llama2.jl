@@ -37,6 +37,14 @@ using Test
         res_5 = rmsnorm(x, weight)
         exp_5 = [1.999998888889815]
         @test res_5 ≈ exp_5 
+
+        # Test 6: Case with empty vector
+        x = Float32[]
+        weight = Float32[]
+        res_6 = rmsnorm(x, weight)
+        exp_6 = Float32[]
+        @test res_6 == exp_6
+
     end
 
 
@@ -76,6 +84,12 @@ using Test
         res_6 = softmax(x)
         exp_6 = [0.66524096, 0.24472847, 0.09003057]
         @test isapprox(res_6, exp_6, atol=1e-6)
+
+        # Test 7: Case with empty vector
+        x = Float32[]
+        res_7 = softmax(x)
+        exp_7 = Float32[]
+        @test res_7 == exp_7
     end
 
     @testset "swiglu" begin
@@ -113,6 +127,13 @@ using Test
         res_5 = swiglu(x, x2)
         exp_5 = [5.71544476]
         @test isapprox(res_5, exp_5, atol=1e-6)
+
+        # Test 6: Case with empty vector
+        x = Float32[]
+        x2 = Float32[]
+        res_6 = swiglu(x, x2)
+        exp_6 = Float32[]
+        @test res_6 == exp_6
     end
 end
 
