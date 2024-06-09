@@ -6,4 +6,5 @@ using Test
     include("test_sampler.jl")
     include("test_config.jl")
     include("test_transformer.jl")
+    include("test_math_llama.jl")
 end
