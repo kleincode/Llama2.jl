@@ -36,7 +36,7 @@ using Test
         weight = Float32[2.0]
         res_5 = rmsnorm(x, weight)
         exp_5 = [1.999998888889815]
-        @test res_5 ≈ exp_5 # res_5 ≈ exp_5 is equivalent to res_5 ≈ exp_5
+        @test res_5 ≈ exp_5 
     end
 
 
