@@ -53,4 +53,38 @@ using Test
             @test isfinite(tokenizer.vocab_scores[i])
         end
     end
+
+    @testset "Decode" begin
+        tokens = ["ERR", "<bos>", "<eos>", "a", "b", "c", "<0x2C>", " dog"]
+        scores = ones(Float32, size(tokens))
+        tokenizer = Tokenizer(tokens, scores)
+        @testset "Decode returns string" begin
+            return_types = Base.return_types(decode)
+            @test length(return_types) == 1
+            @test return_types[1] == String
+        end
+        @testset "Decode regular token" begin
+            @test decode(tokenizer, 1, 3) == "a"
+            @test decode(tokenizer, 3, 4) == "b"
+            @test decode(tokenizer, 6, 5) == "c"
+            @test decode(tokenizer, 6, 7) == " dog"
+        end
+        @testset "Decode control chars like <bos> and <eos>" begin
+            @test decode(tokenizer, 3, 1) == "<bos>"
+            @test decode(tokenizer, 1, 2) == "<eos>"
+        end
+        @testset "Decode char of form <0xhh>" begin
+            @test decode(tokenizer, 1, 6) == ","
+        end
+        @testset "Decode with previous token == BOS" begin
+            @test decode(tokenizer, 1, 2) == "<eos>"
+            @test decode(tokenizer, 1, 4) == "b"
+            @test decode(tokenizer, 1, 6) == ","
+            @test decode(tokenizer, 1, 7) == "dog" # space is stripped
+        end
+        @testset "Out of bounds token" begin
+            @test_throws BoundsError decode(tokenizer, 1, length(tokens))
+            @test_throws BoundsError decode(tokenizer, 1, -1)
+        end
+    end
 end
