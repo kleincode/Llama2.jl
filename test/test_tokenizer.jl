@@ -37,7 +37,7 @@ using Test
     end
 
     @testset "Read tokenizer.bin from llama.c repository" begin
-        # Load Andrew Karpathy's tokenizer from the llama.c repository
+        # Load Andrew Karpathy's tokenizer from the llama2.c repository
         vocab_size = 32000
         tokenizer = Tokenizer("../bin/tokenizer/tokenizer.bin", vocab_size)
 
@@ -86,5 +86,56 @@ using Test
             @test_throws BoundsError decode(tokenizer, 1, length(tokens))
             @test_throws BoundsError decode(tokenizer, 1, -1)
         end
+    end
+
+    @testset "Encode" begin
+        @testset "Simple Tokenizer" begin
+            simple_tokens = ["<bos>", "<eos>", "a", "b", "c", " "]
+            simple_scores = ones(Float32, size(simple_tokens))
+            simple_tokenizer = Tokenizer(simple_tokens, simple_scores)
+
+            text = " aacb"
+            encoded_tokens = encode(simple_tokenizer, text)
+            @test encoded_tokens == [6, 3, 3, 5, 4]
+        end
+
+        """
+        vocab_size = 32000
+        tokenizer = Tokenizer("../bin/tokenizer/tokenizer.bin", vocab_size)
+        @testset "Check different strings" begin
+            texts = ["Good morning", "1234", "hello!", "Good morning", "Good Morning", "abcdef", "1"]
+            for text in texts
+                decoded_text = ""
+                tokens = encode(tokenizer, text)
+                for i in 1:(length(tokens)-1)
+                    piece = decode(tokenizer, tokens[i], tokens[i+1])
+                    decoded_text = decoded_text * piece
+                end
+                
+                @test decoded_text == text
+            end
+        end 
+
+        @testset "Letters and Numbers" begin
+            texts = ["a", "b", "c", "d", "1", "0", "2", "?", "!"]
+            for text in texts
+                tokens = encode(tokenizer, text)
+                decoded_text = ""
+                for i in 1:(length(tokens)-1)
+                    @test tokens[i] == "g"
+                    piece = decode(tokenizer, tokens[i], tokens[i+1])
+                    decoded_text = decoded_text * piece
+                end
+                
+                @test decoded_text == text
+            end
+        end
+        @testset "Empty string" begin
+            token = encode(tokenizer, "")
+            @test token == []
+        end
+        """
+
+        
     end
 end

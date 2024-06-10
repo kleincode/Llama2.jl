@@ -67,9 +67,9 @@ bos != 0 means prepend the BOS token (=1), eos != 0 means append the EOS token (
 
 llama2.c correspondence: encode (l. 452)
 """
-function encode(tokenizer::Tokenizer, text::Vector{String})
-    # temporary var that stores merge candidates of two consecuritve tokens
-    tokens::Vector{Int32} = []
+function encode(tokenizer::Tokenizer, text::String)
+    # stores merge candidates of two consecutive tokens
+    tokens::Vector{Int} = []
 
     # if the text is empty there is no encoding so we can return the empty tokens array
     if isempty(text)
@@ -104,7 +104,7 @@ function encode(tokenizer::Tokenizer, text::Vector{String})
                 tokenizer.index_to_token[tokens[i + 1]]
 
             # check if merged_token exists
-            id::Int32 = get(tokenizer.token_to_index, merged_token, nothing)
+            id = get(tokenizer.token_to_index, merged_token, nothing)
 
             # if id exists and the vocab_score is bigger than the best score, this token becomes the new best token
             if !isnothing(id) && tokenizer.vocab_scores[id] > best_score
