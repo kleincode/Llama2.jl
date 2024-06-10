@@ -64,11 +64,11 @@ function (sampler::Sampler)(logits::Vector{Float32})
         if sampler.topp == 0.0f0 || sampler.topp == 1.0f0
             # simply sample from the predicted probability distribution
             next = sample_mult(probs, coin)
-        else 
+        else
             # top-p (nucleus) sampling, clamping the least likely tokens to zero
             next = sample_topp(probs, sampler.topp, coin)
         end
-    end 
+    end
     return next
 end
 
@@ -115,12 +115,12 @@ function sample_topp(probabilities::Vector{Float32}, topp::Float32, coin::Float3
     0.0f0 <= coin <= 1.0f0 || throw(ArgumentError("Coin must be in [0, 1]"))
     # values smaller than (1 - topp) / (n - 1) cannot be part of the result
     # so for efficiency we crop these out as candidates before sorting
-    cutoff = (1.0f0 - topp) / (length(probabilities) - 1.0f0);
+    cutoff = (1.0f0 - topp) / (length(probabilities) - 1.0f0)
     idx_greater = findall(x -> x >= cutoff, probabilities)
     # add all probabilities that are greater than cutoff
     probindex = [ProbIndex(probabilities[i], i) for i in idx_greater]
     # sort indices in descending order of probabilities
-    sort!(probindex, by = x -> x.prob, rev = true)
+    sort!(probindex; by=x -> x.prob, rev=true)
     # truncate the list where cumulative probability exceeds topp
     cum_prob = 0.0f0
     for (i, probind) in enumerate(probindex)
@@ -141,14 +141,4 @@ function sample_topp(probabilities::Vector{Float32}, topp::Float32, coin::Float3
         end
     end
     return probindex[end].index # in case of rounding errors
-end
-
-"""
-    softmax(values::Vector{Float32})
-    
-Transform logits into probabilities.
-"""
-function softmax(values::Vector{Float32})
-    exp_values = exp.(values)
-    return exp_values ./ sum(exp_values)
 end

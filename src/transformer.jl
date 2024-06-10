@@ -42,8 +42,8 @@ struct RunState
     hb::Vector{Float32}  # buffer for hidden dimension in the ffn (hidden_dim,)
     hb2::Vector{Float32} # buffer for hidden dimension in the ffn (hidden_dim,)
     q::Vector{Float32}  # query (dim,)
-    k::Vector{Float32}   # key (dim,)
-    v::Vector{Float32}   # value (dim,)
+    # k::Vector{Float32}   # key (dim,) - this is just a pointer to a portion of key_cache
+    # v::Vector{Float32}   # value (dim,) - this is just a pointer to a portion of value_cache
     att::Array{Float32,2} # buffer for scores/attention values (n_heads, seq_len)
     logits::Array{Float32} # output logits, not sure which dimensions
 
@@ -86,9 +86,8 @@ function RunState(config::Config)
         Array{Float32}(undef, config.hidden_dim),
         Array{Float32}(undef, config.hidden_dim),
         Array{Float32}(undef, config.dim),  # q
-        # in llama2.c k and v are not defined
-        Array{Float32}(undef, config.dim),  # k
-        Array{Float32}(undef, config.dim),  # v
+        # Array{Float32}(undef, config.dim),  # k
+        # Array{Float32}(undef, config.dim),  # v
         Array{Float32}(undef, config.n_heads, config.seq_len),  # rms_att_weight
         Array{Float32}(undef, config.vocab_size),   # logits
         Array{Float32}(undef, config.n_layers, config.seq_len, kv_dim),
@@ -120,4 +119,55 @@ function TransformerWeights(config::Config)
         Array{Float32}(undef, config.n_layers, config.hidden_dim, config.dim),
         Vector{Float32}(undef, config.dim),
     )
+end
+
+function forward(transformer::Transformer, token::Int, pos::Int)
+    # a few convenience variables
+    (; dim, hidden_dim, n_heads, n_kv_heads, n_layers) = transformer.config
+    s = transformer.state
+    w = transformer.weights
+    kv_dim = (dim * n_kv_heads) ÷ n_heads
+    kv_mul = n_heads ÷ n_kv_heads # integer multiplier of the kv sharing in multiquery
+    head_size = dim ÷ n_heads
+
+    # copy the token embedding into x
+    x::Vector{Float32} = transformer.weights.token_embedding_table[token, :]
+
+    # forward all the layers
+    for l in 1:n_layers
+        # attention rmsnorm
+        s.xb = rmsnorm(x, w.rms_att_weight[l, :])
+
+        # qkv matmuls for this position
+        s.q = w.wq[l, :, :] * s.xb
+        s.key_cache[l, pos, :] = w.wk[l, :, :] * s.xb
+        s.value_cache[l, pos, :] = w.wv[l, :, :] * s.xb
+
+        # RoPE relative positional encoding: complex-valued rotate q and k in each head
+        for i in 1:2:dim
+            head_dim = (i - 1) % head_size
+            freq = 1.0f0 / (10000.0f0^(head_dim / head_size))
+            val = pos * freq
+            fcr = cos(val)
+            fci = sin(val)
+
+            # rotate query
+            v0 = s.q[i]
+            v1 = s.q[i + 1]
+            s.q[i] = v0 * fcr - v1 * fci
+            s.q[i + 1] = v0 * fci + v1 * fcr
+
+            # rotate key only if i < kv_dim
+            if i < kv_dim
+                v0 = s.key_cache[l, pos, i]
+                v1 = s.key_cache[l, pos, i + 1]
+                s.key_cache[l, pos, i] = v0 * fcr - v1 * fci
+                s.key_cache[l, pos, i + 1] = v0 * fci + v1 * fcr
+            end
+        end
+
+        # TODO continue (l. 281)
+    end
+
+    return nothing
 end
