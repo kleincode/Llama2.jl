@@ -36,7 +36,7 @@ using Test
         end
     end
 
-    @testset "Read tokenizer.bin from llama.c repository" begin
+    @testset "Read tokenizer.bin from llama2.c repository" begin
         # Load Andrew Karpathy's tokenizer from the llama2.c repository
         vocab_size = 32000
         tokenizer = Tokenizer("../bin/tokenizer/tokenizer.bin", vocab_size)
@@ -64,44 +64,77 @@ using Test
             @test return_types[1] == String
         end
         @testset "Decode regular token" begin
-            @test decode(tokenizer, 1, 3) == "a"
-            @test decode(tokenizer, 3, 4) == "b"
-            @test decode(tokenizer, 6, 5) == "c"
-            @test decode(tokenizer, 6, 7) == " dog"
+            @test decode(tokenizer, 2, 4) == "a"
+            @test decode(tokenizer, 4, 5) == "b"
+            @test decode(tokenizer, 7, 6) == "c"    # why no 0x2C testing?
+            @test decode(tokenizer, 7, 8) == " dog"
         end
         @testset "Decode control chars like <bos> and <eos>" begin
-            @test decode(tokenizer, 3, 1) == "<bos>"
-            @test decode(tokenizer, 1, 2) == "<eos>"
+            @test decode(tokenizer, 4, 2) == "<bos>"
+            @test decode(tokenizer, 2, 3) == "<eos>"
         end
         @testset "Decode char of form <0xhh>" begin
-            @test decode(tokenizer, 1, 6) == ","
+            @test decode(tokenizer, 2, 7) == ","
         end
         @testset "Decode with previous token == BOS" begin
-            @test decode(tokenizer, 1, 2) == "<eos>"
-            @test decode(tokenizer, 1, 4) == "b"
-            @test decode(tokenizer, 1, 6) == ","
-            @test decode(tokenizer, 1, 7) == "dog" # space is stripped
+            @test decode(tokenizer, 2, 3) == "<eos>"
+            @test decode(tokenizer, 2, 5) == "b"
+            @test decode(tokenizer, 2, 7) == ","
+            @test decode(tokenizer, 2, 8) == "dog" # space is stripped
         end
         @testset "Out of bounds token" begin
-            @test_throws BoundsError decode(tokenizer, 1, length(tokens))
-            @test_throws BoundsError decode(tokenizer, 1, -1)
+            @test_throws BoundsError decode(tokenizer, 2, length(tokens) + 1)
+            @test_throws BoundsError decode(tokenizer, 2, -1)
         end
     end
 
     @testset "Encode" begin
         @testset "Simple Tokenizer" begin
-            simple_tokens = ["<bos>", "<eos>", "a", "b", "c", " "]
+            simple_tokens = [" ", "<bos>", "<eos>", "a", "b", "c"]
             simple_scores = ones(Float32, size(simple_tokens))
             simple_tokenizer = Tokenizer(simple_tokens, simple_scores)
 
-            text = " aacb"
+            text = "aacb"
             encoded_tokens = encode(simple_tokenizer, text)
-            @test encoded_tokens == [6, 3, 3, 5, 4]
+            @test encoded_tokens == [2, 1, 4, 4, 6, 5, 3]
+
+            @test decode(simple_tokenizer, 1, 4) == "a"
+            @test decode(simple_tokenizer, 4, 4) == "a"
+            @test decode(simple_tokenizer, 4, 6) == "c"
+            @test decode(simple_tokenizer, 6, 5) == "b"
+            
+            simple_decoded_text = ""
+            for i in 1:(length(encoded_tokens)-1)
+                piece = decode(simple_tokenizer, encoded_tokens[i], encoded_tokens[i+1])
+                simple_decoded_text = simple_decoded_text * piece
+            end
+
+            @test simple_decoded_text == "aacb"
         end
 
-        """
+        
         vocab_size = 32000
         tokenizer = Tokenizer("../bin/tokenizer/tokenizer.bin", vocab_size)
+        
+        @testset "Empty string" begin
+            token = encode(tokenizer, "")
+            @test token == []
+        end
+
+        @testset "Letters and Numbers" begin
+            texts = ["a", "b", "c", "d", "!", ",", "2", "<0x2C>"]    # numbers dont work? apparently
+            for text in texts
+                tokens = encode(tokenizer, text)
+                decoded_text = ""
+                for i in 1:(length(tokens)-1)
+                    piece = decode(tokenizer, tokens[i], tokens[i+1])
+                    decoded_text = decoded_text * piece
+                end
+                
+                @test decoded_text == text
+            end
+        end
+
         @testset "Check different strings" begin
             texts = ["Good morning", "1234", "hello!", "Good morning", "Good Morning", "abcdef", "1"]
             for text in texts
@@ -115,27 +148,6 @@ using Test
                 @test decoded_text == text
             end
         end 
-
-        @testset "Letters and Numbers" begin
-            texts = ["a", "b", "c", "d", "1", "0", "2", "?", "!"]
-            for text in texts
-                tokens = encode(tokenizer, text)
-                decoded_text = ""
-                for i in 1:(length(tokens)-1)
-                    @test tokens[i] == "g"
-                    piece = decode(tokenizer, tokens[i], tokens[i+1])
-                    decoded_text = decoded_text * piece
-                end
-                
-                @test decoded_text == text
-            end
-        end
-        @testset "Empty string" begin
-            token = encode(tokenizer, "")
-            @test token == []
-        end
-        """
-
         
     end
 end

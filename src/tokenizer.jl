@@ -61,6 +61,9 @@ function Tokenizer(tokenizer_path::String, vocab_size::Int)
     return Tokenizer(tokens, vocab_scores)
 end
 
+const BOS_TOKEN::Int32 = 2
+const EOS_TOKEN::Int32 = 3
+
 """
 Encode the string text (input) into an upper-bound preallocated token array
 bos != 0 means prepend the BOS token (=1), eos != 0 means append the EOS token (=2)
@@ -75,6 +78,9 @@ function encode(tokenizer::Tokenizer, text::String)
     if isempty(text)
         return tokens
     end
+
+    # add BOS token
+    push!(tokens, BOS_TOKEN)
     # add dummy_prefix is default
     # add prefix to the input string only if text isn't empty
     # not sure why though
@@ -101,7 +107,7 @@ function encode(tokenizer::Tokenizer, text::String)
             # merge consecutive tokens 
             merged_token =
                 tokenizer.index_to_token[tokens[i]] *
-                tokenizer.index_to_token[tokens[i + 1]]
+                tokenizer.index_to_token[tokens[i+1]]
 
             # check if merged_token exists
             id = get(tokenizer.token_to_index, merged_token, nothing)
@@ -126,11 +132,13 @@ function encode(tokenizer::Tokenizer, text::String)
         splice!(tokens, best_idx + 1)
     end
 
+    # add EOS token
+    # is it place 2? Because Julia starts counting at 1
+    push!(tokens, EOS_TOKEN)
+
     # return encoded tokens
     return tokens
 end
-
-const BOS_TOKEN::Int32 = 1
 
 """
     decode(tokenizer::Tokenizer, prev_token::Int32, token::Int32)
@@ -141,7 +149,7 @@ If the previous token is BOS, leading spaces are removed.
 llama2.c correspondence: decode (l. 418)
 """
 function decode(tokenizer::Tokenizer, prev_token::Int, token::Int)
-    piece = tokenizer.index_to_token[token + 1]
+    piece = tokenizer.index_to_token[token]
     # following BOS (1) token, sentencepiece decoder strips any leading whitespace
     if prev_token == BOS_TOKEN && piece[1] == ' '
         piece = piece[2:end]
