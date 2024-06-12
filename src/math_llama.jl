@@ -17,11 +17,10 @@ function rmsnorm(x::Vector{Float32}, weight::Vector{Float32})
     # Calculate the sum of the squares
     sum_squares = sum(x .^ 2) / length(x)
     sum_squares += 1.0f-5
-    sum_squares = 1.0f0 / sqrt(sum_squares) 
-    
-    return weight.*(sum_squares.*x)
-end
+    sum_squares = 1.0f0 / sqrt(sum_squares)
 
+    return weight .* (sum_squares .* x)
+end
 
 """
     softmax(x::Vector{Float32})
@@ -35,26 +34,27 @@ function softmax(x::Vector{Float32})::Vector{Float32}
     end
 
     # exp and sum
-    sum_exp = exp.(x.-maximum(x))
+    sum_exp = exp.(x .- maximum(x))
 
     # normalize and return
 
-    return sum_exp./sum(sum_exp)
+    return sum_exp ./ sum(sum_exp)
 end
-
 
 """
     swiglu(x::Vector{Float32}, x2::Vector{Float32})
 Activation function that combines GLU and Swish functions. 
+```math
+swiglu(x, x_2) = x * x_2 * sigmoid(x)
+```
 Reference in llama2.c lines 338-345
 """
 function swiglu(x::Vector{Float32}, x2::Vector{Float32})::Vector{Float32}
     if length(x) == 0
         return Float32[]
     end
-    log_sigmoid = 1 ./ (1 .+ exp.(-x))
+    sigmoid = 1 ./ (1 .+ exp.(-x))
     # SiLu function
-    silu = x .* log_sigmoid
-    
+    silu = x .* sigmoid
     return silu .* x2
 end

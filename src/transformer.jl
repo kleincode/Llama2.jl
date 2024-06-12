@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 """
 Initial parameters for the transformer weights
 
@@ -26,7 +28,7 @@ struct TransformerWeights
     rms_final_weight::Vector{Float32} # (dim,)
 
     # optional classifier weights
-    # wcls::Array{Float32} 
+    wcls::Matrix{Float32}  # (vocab_size, dim)
 end
 
 """
@@ -34,7 +36,7 @@ Initial parameters for the run state
 
 llama2.c correspondence: RunState (l. 50)
 """
-struct RunState
+mutable struct RunState
     # current way of activations
     x::Vector{Float32}  # activation at current time stamp (dim,)
     xb::Vector{Float32}  # same, but inside a residual branch (dim,)
@@ -118,6 +120,7 @@ function TransformerWeights(config::Config)
         Array{Float32}(undef, config.n_layers, config.dim, config.hidden_dim),
         Array{Float32}(undef, config.n_layers, config.hidden_dim, config.dim),
         Vector{Float32}(undef, config.dim),
+        Matrix{Float32}(undef, config.vocab_size, config.dim),
     )
 end
 
@@ -166,8 +169,55 @@ function forward(transformer::Transformer, token::Int, pos::Int)
             end
         end
 
-        # TODO continue (l. 281)
+        # iterate over all heads
+        for h in 0:(n_heads - 1)
+            # get the query vector for this head
+            h_off = h * head_size
+            q = s.q[(h_off + 1):(h_off + h)]
+            # iterate over all timesteps, including the current one
+            kv_ind = h ÷ kv_mul
+            for t in 1:pos
+                k = s.key_cache[l, t, (kv_ind + 1):(kv_ind + head_size)]
+                score = (q ⋅ k) / sqrt(Float32(head_size))
+                s.att[h + 1, t] = score
+            end
+            # softmax the scores to get attention weights, from 0..pos inclusively
+            s.att[h + 1] = softmax(s[h + 1])
+            # weighted sum of the values, store back into xb
+            s.xb[(h_off + 1):(h_off + h)] .= 0
+            for t in 1:pos
+                # get the value vector for this head and at this timestep
+                v = s.value_cache[l, t, (kv_ind + 1):(kv_ind + head_size)]
+                # accumulate the weighted value into xb
+                s.xb[(h_off + 1):(h_off + h)] += s.att[h + 1, t] * v
+            end
+        end
+
+        # final matmul to get the output of the attention
+        s.xb2 = w.wo[l, :, :] * s.xb
+
+        # residual connection back into x
+        x += s.xb2
+
+        # ffn rmsnorm
+        s.xb = rmsnorm(s.xb, w.rms_ffn_weight[l, :])
+
+        # Now for FFN in PyTorch we have: self.w2(F.silu(self.w1(x)) * self.w3(x))
+        # first calculate self.w1(x) and self.w3(x)
+        s.hb = w.w1[l, :, :] * s.xb
+        s.hb2 = w.w3[l, :, :] * s.xb
+
+        # SwiGLU non-linearity
+        s.hb = swiglu(s.hb, s.hb2)
+        # final matmul to get the output of the ffn
+        s.xb = w.w2[l, :, :] * s.hb
+        # residual connection
+        x += s.xb
     end
 
-    return nothing
+    # final rmsnorm
+    x = rmsnorm(x, w.rms_final_weight)
+    # classifier into logits
+    s.logits = w.wcls * x
+    return s.logits
 end
