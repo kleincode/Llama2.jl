@@ -4,11 +4,11 @@ using Test
 @testset "Transformer" begin
     @testset "Initialize Transformer Weights" begin
         # initialize Config
-        dim::Int32 = 5
+        dim::Int32 = 8
         hidden_dim::Int32 = 10
         n_layers::Int32 = 3
         n_heads::Int32 = 4
-        n_kv_heads::Int32 = 6
+        n_kv_heads::Int32 = 4
         vocab_size::Int32 = 30
         seq_len::Int32 = 2
 
@@ -23,8 +23,8 @@ using Test
         @test size(weights.rms_ffn_weight) == (n_layers, dim)
 
         @test size(weights.wq) == (n_layers, dim, (n_heads * head_size))
-        @test size(weights.wk) == (n_layers, dim, (n_kv_heads * head_size))
-        @test size(weights.wv) == (n_layers, dim, (n_kv_heads * head_size))
+        @test size(weights.wk) == (n_layers, (n_kv_heads * head_size), dim)
+        @test size(weights.wv) == (n_layers, (n_kv_heads * head_size), dim)
         @test size(weights.wo) == (n_layers, (n_heads * head_size), dim)
 
         @test size(weights.w1) == (n_layers, hidden_dim, dim)
@@ -36,11 +36,11 @@ using Test
 
     @testset "Initialize RunState" begin
         # initialize Config
-        dim::Int32 = 5
+        dim::Int32 = 8
         hidden_dim::Int32 = 10
         n_layers::Int32 = 3
         n_heads::Int32 = 4
-        n_kv_heads::Int32 = 6
+        n_kv_heads::Int32 = 4
         vocab_size::Int32 = 30
         seq_len::Int32 = 2
 
@@ -56,11 +56,29 @@ using Test
         @test size(state.hb) == (hidden_dim,)
         @test size(state.hb2) == (hidden_dim,)
         @test size(state.q) == (dim,)
-        @test size(state.k) == (dim,)
-        @test size(state.v) == (dim,)
         @test size(state.att) == (n_heads, seq_len)
         @test size(state.logits) == (vocab_size,)
         @test size(state.key_cache) == (n_layers, seq_len, kv_dim)
         @test size(state.value_cache) == (n_layers, seq_len, kv_dim)
+    end
+
+    @testset "Transformer forward with dummy weights" begin
+        # initialize Config
+        dim::Int32 = 8
+        hidden_dim::Int32 = 10
+        n_layers::Int32 = 3
+        n_heads::Int32 = 4
+        n_kv_heads::Int32 = 2
+        vocab_size::Int32 = 30
+        seq_len::Int32 = 10
+
+        config = Config(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
+        state = RunState(config)
+        weights = TransformerWeights(config)
+        transformer = Transformer(config, weights, state, 0, Float32[], 0)
+
+        for i in 1:seq_len
+            forward(transformer, i, i)
+        end
     end
 end

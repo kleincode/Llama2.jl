@@ -14,10 +14,10 @@ struct TransformerWeights
     rms_ffn_weight::Matrix{Float32}         # (layer, dim)
 
     # weights for matmuls (dim == n_heads * head_size)
-    wq::Array{Float32,3}  # (layer, dim, n_heads * head_size)
-    wk::Array{Float32,3}  # (layer, dim, n_kv_heads * head_size)
-    wv::Array{Float32,3}  # (layer, dim, n_kv_heads * head_size)
-    wo::Array{Float32,3}  # (layer, n_heads * head_size, dim)
+    wq::Array{Float32,3}  # (n_layers, dim, dim)
+    wk::Array{Float32,3}  # llama2.c says (n_layers, dim, kv_dim), should be (n_layers, kv_dim, dim)
+    wv::Array{Float32,3}  # llama2.c says (n_layers, dim, kv_dim), should be (n_layers, kv_dim, dim)
+    wo::Array{Float32,3}  # (n_layers, dim, dim)
 
     # weights for ffn
     w1::Array{Float32,3}  # (layer, hidden_dim, dim)
@@ -47,11 +47,11 @@ mutable struct RunState
     # k::Vector{Float32}   # key (dim,) - this is just a pointer to a portion of key_cache
     # v::Vector{Float32}   # value (dim,) - this is just a pointer to a portion of value_cache
     att::Array{Float32,2} # buffer for scores/attention values (n_heads, seq_len)
-    logits::Array{Float32} # output logits, not sure which dimensions
+    logits::Array{Float32} # output logits (vocab_size,)
 
     # kv cache
-    key_cache::Array{Float32,3}  # (layer, seq_len, dim)
-    value_cache::Array{Float32,3}  # (layer, seq_len, dim)
+    key_cache::Array{Float32,3}  # (n_layers, seq_len, kv_dim)
+    value_cache::Array{Float32,3}  # (n_layers, seq_len, kv_dim)
 end
 
 """
@@ -104,29 +104,29 @@ Initialize transformer weights based on Config
 llama2.c correspondence: memory_map_weights (l. 111)
 """
 function TransformerWeights(config::Config)
-    # calculation of head_size
-    head_size::Int32 = config.dim ÷ config.n_heads
+    (; dim, hidden_dim, n_heads, n_kv_heads, n_layers, vocab_size) = config
+    kv_dim = (dim * n_kv_heads) ÷ n_heads
 
     # initialization of undefined arrays
     return TransformerWeights(
-        Matrix{Float32}(undef, config.vocab_size, config.dim),
-        Matrix{Float32}(undef, config.n_layers, config.dim),
-        Matrix{Float32}(undef, config.n_layers, config.dim),
-        Array{Float32}(undef, config.n_layers, config.dim, (config.n_heads * head_size)),
-        Array{Float32}(undef, config.n_layers, config.dim, (config.n_kv_heads * head_size)),
-        Array{Float32}(undef, config.n_layers, config.dim, (config.n_kv_heads * head_size)),
-        Array{Float32}(undef, config.n_layers, (config.n_heads * head_size), config.dim),
-        Array{Float32}(undef, config.n_layers, config.hidden_dim, config.dim),
-        Array{Float32}(undef, config.n_layers, config.dim, config.hidden_dim),
-        Array{Float32}(undef, config.n_layers, config.hidden_dim, config.dim),
-        Vector{Float32}(undef, config.dim),
-        Matrix{Float32}(undef, config.vocab_size, config.dim),
+        Matrix{Float32}(undef, vocab_size, dim),
+        Matrix{Float32}(undef, n_layers, dim),
+        Matrix{Float32}(undef, n_layers, dim),
+        Array{Float32}(undef, n_layers, dim, dim),
+        Array{Float32}(undef, n_layers, kv_dim, dim),
+        Array{Float32}(undef, n_layers, kv_dim, dim),
+        Array{Float32}(undef, n_layers, dim, dim),
+        Array{Float32}(undef, n_layers, hidden_dim, dim),
+        Array{Float32}(undef, n_layers, dim, hidden_dim),
+        Array{Float32}(undef, n_layers, hidden_dim, dim),
+        Vector{Float32}(undef, dim),
+        Matrix{Float32}(undef, vocab_size, dim),
     )
 end
 
-function forward(transformer::Transformer, token::Int, pos::Int)
+function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
     # a few convenience variables
-    (; dim, hidden_dim, n_heads, n_kv_heads, n_layers) = transformer.config
+    (; dim, n_heads, n_kv_heads, n_layers) = transformer.config
     s = transformer.state
     w = transformer.weights
     kv_dim = (dim * n_kv_heads) ÷ n_heads
@@ -142,9 +142,9 @@ function forward(transformer::Transformer, token::Int, pos::Int)
         s.xb = rmsnorm(x, w.rms_att_weight[l, :])
 
         # qkv matmuls for this position
-        s.q = w.wq[l, :, :] * s.xb
-        s.key_cache[l, pos, :] = w.wk[l, :, :] * s.xb
-        s.value_cache[l, pos, :] = w.wv[l, :, :] * s.xb
+        s.q = w.wq[l, :, :] * s.xb # (dim,) = (dim,dim) * (dim,)
+        s.key_cache[l, pos, :] = w.wk[l, :, :] * s.xb # (kv_dim,) = (kv_dim,dim) * (dim,)
+        s.value_cache[l, pos, :] = w.wv[l, :, :] * s.xb # (kv_dim,) = (kv_dim,dim) * (dim,)
 
         # RoPE relative positional encoding: complex-valued rotate q and k in each head
         for i in 1:2:dim
@@ -173,23 +173,23 @@ function forward(transformer::Transformer, token::Int, pos::Int)
         for h in 0:(n_heads - 1)
             # get the query vector for this head
             h_off = h * head_size
-            q = s.q[(h_off + 1):(h_off + h)]
+            q = s.q[(h_off + 1):(h_off + head_size)]
             # iterate over all timesteps, including the current one
-            kv_ind = h ÷ kv_mul
+            kv_ind = (h ÷ kv_mul) * head_size
             for t in 1:pos
                 k = s.key_cache[l, t, (kv_ind + 1):(kv_ind + head_size)]
                 score = (q ⋅ k) / sqrt(Float32(head_size))
                 s.att[h + 1, t] = score
             end
-            # softmax the scores to get attention weights, from 0..pos inclusively
-            s.att[h + 1] = softmax(s[h + 1])
+            # softmax the scores to get attention weights, from 1..pos inclusively
+            s.att[h + 1, 1:pos] = softmax(s.att[h + 1, 1:pos])
             # weighted sum of the values, store back into xb
-            s.xb[(h_off + 1):(h_off + h)] .= 0
+            s.xb[(h_off + 1):(h_off + head_size)] .= 0
             for t in 1:pos
                 # get the value vector for this head and at this timestep
                 v = s.value_cache[l, t, (kv_ind + 1):(kv_ind + head_size)]
                 # accumulate the weighted value into xb
-                s.xb[(h_off + 1):(h_off + h)] += s.att[h + 1, t] * v
+                s.xb[(h_off + 1):(h_off + head_size)] += s.att[h + 1, t] * v
             end
         end
 

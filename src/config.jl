@@ -32,6 +32,9 @@ struct Config
             throw(ArgumentError("The number of key/value heads must be bigger than zero"))
         vocab_size > 0 || throw(ArgumentError("The vocabulary must not be empty"))
         seq_len > 0 || throw(ArgumentError("The sequence length must be bigger than zero"))
+        dim % n_heads == 0 || throw(ArgumentError("dim must be a multiple of n_heads"))
+        n_heads % n_kv_heads == 0 ||
+            throw(ArgumentError("n_heads must be a multiple of n_kv_heads"))
 
         return new(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
     end

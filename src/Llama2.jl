@@ -9,7 +9,7 @@ include("math_llama.jl")
 export Sampler, sample_topp, sample_argmax, sample_mult, softmax
 export Tokenizer, decode
 export Config
-export Transformer, RunState, TransformerWeights
+export Transformer, RunState, TransformerWeights, forward
 export rmsnorm, softmax, swiglu
 
 end
