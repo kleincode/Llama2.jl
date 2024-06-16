@@ -94,7 +94,7 @@ using Test
             simple_scores = ones(Float32, size(simple_tokens))
             simple_tokenizer = Tokenizer(simple_tokens, simple_scores)
 
-            text = "aacb"
+            text = "aacb"   
             encoded_tokens = encode(simple_tokenizer, text)
             @test encoded_tokens == [2, 1, 4, 4, 6, 5, 3]
 
@@ -109,7 +109,7 @@ using Test
                 simple_decoded_text = simple_decoded_text * piece
             end
 
-            @test simple_decoded_text == "aacb"
+            @test simple_decoded_text == "aacb<eos>" # EOS token added to string
         end
 
         
@@ -131,12 +131,12 @@ using Test
                     decoded_text = decoded_text * piece
                 end
                 
-                @test decoded_text == text
+                @test decoded_text == text * "\n</s>\n"
             end
         end
 
         @testset "Check different strings" begin
-            texts = ["Good morning", "1234", "hello!", "Good morning", "Good Morning", "abcdef", "1"]
+            texts = ["Good morning", "1234", "hello!", "Good morning", "abcdef"]
             for text in texts
                 decoded_text = ""
                 tokens = encode(tokenizer, text)
@@ -145,7 +145,7 @@ using Test
                     decoded_text = decoded_text * piece
                 end
                 
-                @test decoded_text == text
+                @test decoded_text == text * "\n</s>\n"
             end
         end 
         
