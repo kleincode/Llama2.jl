@@ -61,18 +61,95 @@ function Tokenizer(tokenizer_path::String, vocab_size::Int)
     return Tokenizer(tokens, vocab_scores)
 end
 
-const BOS_TOKEN::Int32 = 1
+const BOS_TOKEN::Int32 = 2
+const EOS_TOKEN::Int32 = 3
+
+"""
+Encode a string text using the tokenizer. 
+Optional EOS token can be added.
+Encoded text can be decoded with the decode function.
+
+Token indices are 1-based (different to the 0-based system in the llama2.c).
+
+llama2.c correspondence: encode (l. 452)
+"""
+function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
+    # stores merge candidates of two consecutive tokens
+    tokens::Vector{Int} = []
+
+    # add BOS token
+    push!(tokens, BOS_TOKEN)
+    # add dummy_prefix is default
+    # add prefix to the input string only if text isn't empty
+    # not sure why though
+    if text != ""
+        dummy_prefix::Int32 = tokenizer.token_to_index[" "]
+        push!(tokens, dummy_prefix)
+    end
+
+    # process the bytes of the text
+    # no need for str_buffers (as in llama2.c) because of julias native codeunits
+    for c in codeunits(text)
+        # add token of the byte to the tokens list
+        token = String(UInt8[c])
+        push!(tokens, tokenizer.token_to_index[token])
+    end
+
+    # merge the best consecutive pair each iteration
+    while true
+        best_score::Float32 = -1f10
+        best_id::Int32 = -1
+        best_idx::Int32 = -1
+
+        for i in 1:(length(tokens) - 1)
+            # merge consecutive tokens 
+            merged_token =
+                tokenizer.index_to_token[tokens[i]] *
+                tokenizer.index_to_token[tokens[i+1]]
+
+            # check if merged_token exists
+            id = get(tokenizer.token_to_index, merged_token, nothing)
+
+            # if id exists and the vocab_score is bigger than the best score, this token becomes the new best token
+            if !isnothing(id) && tokenizer.vocab_scores[id] > best_score
+                best_score = tokenizer.vocab_scores[id]
+                best_id = id
+                best_idx = i
+            end
+        end
+
+        # if no more tokens can be merged, we break
+        if best_idx == -1
+            break
+        end
+
+        # merge consecutive pair into new token best_id
+        tokens[best_idx] = best_id
+
+        # delete token at position best_idx+1, shift entire sequence back 1
+        splice!(tokens, best_idx + 1)
+    end
+
+    # add EOS token, optional
+    if eos_token == true
+        push!(tokens, EOS_TOKEN)
+    end 
+
+    # return encoded tokens
+    return tokens
+end
 
 """
     decode(tokenizer::Tokenizer, prev_token::Int32, token::Int32)
 
 Decodes a token index to a string.
 If the previous token is BOS, leading spaces are removed.
+Token indices are 1-based (different to the 0-based system in the llama2.c).
 
 llama2.c correspondence: decode (l. 418)
 """
 function decode(tokenizer::Tokenizer, prev_token::Int, token::Int)
-    piece = tokenizer.index_to_token[token + 1]
+    piece = tokenizer.index_to_token[token]
     # following BOS (1) token, sentencepiece decoder strips any leading whitespace
     if prev_token == BOS_TOKEN && piece[1] == ' '
         piece = piece[2:end]
