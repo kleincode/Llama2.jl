@@ -65,19 +65,17 @@ const BOS_TOKEN::Int32 = 2
 const EOS_TOKEN::Int32 = 3
 
 """
-Encode the string text (input) into an upper-bound preallocated token array
-bos != 0 means prepend the BOS token (=1), eos != 0 means append the EOS token (=2)
+Encode a string text using the tokenizer. 
+Optional EOS token can be added.
+Encoded text can be decoded with the decode function.
+
+Token indices are 1-based (different to the 0-based system in the llama2.c).
 
 llama2.c correspondence: encode (l. 452)
 """
-function encode(tokenizer::Tokenizer, text::String)
+function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
     # stores merge candidates of two consecutive tokens
     tokens::Vector{Int} = []
-
-    # if the text is empty there is no encoding so we can return the empty tokens array
-    if isempty(text)
-        return tokens
-    end
 
     # add BOS token
     push!(tokens, BOS_TOKEN)
@@ -99,7 +97,7 @@ function encode(tokenizer::Tokenizer, text::String)
 
     # merge the best consecutive pair each iteration
     while true
-        best_score::Float32 = -1e10
+        best_score::Float32 = -1f10
         best_id::Int32 = -1
         best_idx::Int32 = -1
 
@@ -132,9 +130,10 @@ function encode(tokenizer::Tokenizer, text::String)
         splice!(tokens, best_idx + 1)
     end
 
-    # add EOS token
-    # is it place 2? Because Julia starts counting at 1
-    push!(tokens, EOS_TOKEN)
+    # add EOS token, optional
+    if eos_token == true
+        push!(tokens, EOS_TOKEN)
+    end 
 
     # return encoded tokens
     return tokens
@@ -145,6 +144,7 @@ end
 
 Decodes a token index to a string.
 If the previous token is BOS, leading spaces are removed.
+Token indices are 1-based (different to the 0-based system in the llama2.c).
 
 llama2.c correspondence: decode (l. 418)
 """

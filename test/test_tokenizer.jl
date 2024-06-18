@@ -66,7 +66,7 @@ using Test
         @testset "Decode regular token" begin
             @test decode(tokenizer, 2, 4) == "a"
             @test decode(tokenizer, 4, 5) == "b"
-            @test decode(tokenizer, 7, 6) == "c"    # why no 0x2C testing?
+            @test decode(tokenizer, 7, 6) == "c"  
             @test decode(tokenizer, 7, 8) == " dog"
         end
         @testset "Decode control chars like <bos> and <eos>" begin
@@ -96,7 +96,7 @@ using Test
 
             text = "aacb"   
             encoded_tokens = encode(simple_tokenizer, text)
-            @test encoded_tokens == [2, 1, 4, 4, 6, 5, 3]
+            @test encoded_tokens == [2, 1, 4, 4, 6, 5]
 
             @test decode(simple_tokenizer, 1, 4) == "a"
             @test decode(simple_tokenizer, 4, 4) == "a"
@@ -109,7 +109,7 @@ using Test
                 simple_decoded_text = simple_decoded_text * piece
             end
 
-            @test simple_decoded_text == "aacb<eos>" # EOS token added to string
+            @test simple_decoded_text == "aacb" # EOS token added to string
         end
 
         
@@ -118,11 +118,11 @@ using Test
         
         @testset "Empty string" begin
             token = encode(tokenizer, "")
-            @test token == []
+            @test token == [2]    # BOS token
         end
 
         @testset "Letters and Numbers" begin
-            texts = ["a", "b", "c", "d", "!", ",", "2", "<0x2C>"]    # numbers dont work? apparently
+            texts = ["a", "b", "c", "d", "!", ",", "2", "<0x2C>"]   
             for text in texts
                 tokens = encode(tokenizer, text)
                 decoded_text = ""
@@ -131,7 +131,7 @@ using Test
                     decoded_text = decoded_text * piece
                 end
                 
-                @test decoded_text == text * "\n</s>\n"
+                @test decoded_text == text
             end
         end
 
@@ -145,9 +145,23 @@ using Test
                     decoded_text = decoded_text * piece
                 end
                 
-                @test decoded_text == text * "\n</s>\n"
+                @test decoded_text == text
             end
         end 
+
+        @testset "Check EOS token" begin
+            texts = ["Good morning", "1234", "hello!", "Good morning", "abcdef"]
+            for text in texts
+                decoded_text = ""
+                tokens = encode(tokenizer, text, true)
+                for i in 1:(length(tokens)-1)
+                    piece = decode(tokenizer, tokens[i], tokens[i+1])
+                    decoded_text = decoded_text * piece
+                end
+                
+                @test decoded_text == text * "\n</s>\n"
+            end 
+        end
         
     end
 end
