@@ -92,6 +92,7 @@ function RunState(config::Config)
         Array{Float32}(undef, config.n_heads, config.seq_len),  # rms_att_weight
         Array{Float32}(undef, config.vocab_size),   # logits
         Array{Float32}(undef, config.n_layers, config.seq_len, kv_dim),
+        Array{Float32}(undef, config.n_layers, config.seq_len, kv_dim),
     )
 end
 
@@ -112,11 +113,11 @@ function TransformerWeights(config::Config)
         Matrix{Float32}(undef, config.dim, config.n_layers),
         Array{Float32}(undef, (config.n_heads * head_size), config.dim, config.n_layers,),
         Array{Float32}(undef, (config.n_kv_heads * head_size), config.dim, config.n_layers,),
-        Array{Float32}(undef, (config.n_heads * head_size), config.dim, config.n_layers,),
-        Array{Float32}(undef, (config.n_heads * head_size), config.dim, config.n_layers,),
+        Array{Float32}(undef, (config.n_kv_heads * head_size), config.dim, config.n_layers,),
+        Array{Float32}(undef, config.dim, (config.n_heads * head_size), config.n_layers,),
         Array{Float32}(undef, config.dim, config.hidden_dim, config.n_layers),
-        Array{Float32}(undef, config.dim, config.hidden_dim, config.n_layers),
-        Array{Float32}(undef, config.hidden_dim, config.dim, config.n_layers,),
+        Array{Float32}(undef, config.hidden_dim, config.dim, config.n_layers),
+        Array{Float32}(undef, config.dim, config.hidden_dim, config.n_layers,),
         Vector{Float32}(undef, config.dim),
     )
 end
