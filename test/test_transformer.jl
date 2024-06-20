@@ -1,5 +1,6 @@
 using Llama2
 using Test
+using Downloads
 
 @testset "Transformer" begin
     @testset "Initialize Transformer Weights" begin
@@ -66,6 +67,14 @@ using Test
 
     @testset "Read model.bin file from Karpathy" begin
         llama_file = "../bin/transformer/stories15M.bin"
+        if !isfile(llama_file)
+            println("Downloading stories15M.bin...")
+            Downloads.download(
+                "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories15M.bin",
+                llama_file,
+            )
+            println("Download complete!")
+        end
         @testset "Read Config from Bin File" begin
             config, _ = open_file(llama_file)
             @test typeof(config) == Config
