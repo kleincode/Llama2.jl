@@ -7,22 +7,22 @@ llama2.c correspondence: TransformerWeights (l. 29)
 """
 struct TransformerWeights
     # token embedding table
-    token_embedding_table::Matrix{Float32} # (vocab_size, dim)
+    token_embedding_table::Matrix{Float32} # (dim, vocab_size)
 
     # weights
-    rms_att_weight::Matrix{Float32}         # (layer, dim)
-    rms_ffn_weight::Matrix{Float32}         # (layer, dim)
+    rms_att_weight::Matrix{Float32}         # (dim, n_layers)
+    rms_ffn_weight::Matrix{Float32}         # (dim, n_layers)
 
     # weights for matmuls (dim == n_heads * head_size)
-    wq::Array{Float32,3}  # (n_layers, dim, dim)
-    wk::Array{Float32,3}  # llama2.c says (n_layers, dim, kv_dim), should be (n_layers, kv_dim, dim)
-    wv::Array{Float32,3}  # llama2.c says (n_layers, dim, kv_dim), should be (n_layers, kv_dim, dim)
-    wo::Array{Float32,3}  # (n_layers, dim, dim)
+    wq::Array{Float32,3}  # (n_heads * head_size, dim, n_layers)
+    wk::Array{Float32,3}  # llama2.c says (kv_dim, dim, n_layers), should be (dim, kv_dim, n_layers)
+    wv::Array{Float32,3}  # llama2.c says (kv_dim, dim, n_layers), should be (dim, kv_dim, n_layers)
+    wo::Array{Float32,3}  # (dim, n_heads * head_size, n_layers)
 
     # weights for ffn
-    w1::Array{Float32,3}  # (layer, hidden_dim, dim)
-    w2::Array{Float32,3}  # (layer, dim, hidden_dim)
-    w3::Array{Float32,3}  # (layer, hidden_dim, dim)
+    w1::Array{Float32,3}  # (dim, hidden_dim, n_layers)
+    w2::Array{Float32,3}  # (hidden_dim, dim, n_layers)
+    w3::Array{Float32,3}  # (dim, hidden_dim, n_layers)
 
     # final rmsnorm
     rms_final_weight::Vector{Float32} # (dim,)
@@ -71,8 +71,9 @@ struct Transformer
 end
 
 """
+    RunState(config::Config)
+
 Initialization of RunState based on Config
-- initialized as undefined arrays
 
 llama2.c correspondence: malloc_run_state (l. 77)
 """
@@ -98,8 +99,9 @@ function RunState(config::Config)
 end
 
 """
+    TransformerWeights(config::Config)
+
 Initialize transformer weights based on Config
-- initialized as undefined arrays
 
 llama2.c correspondence: memory_map_weights (l. 111)
 """
@@ -109,18 +111,18 @@ function TransformerWeights(config::Config)
 
     # initialization of undefined arrays
     return TransformerWeights(
-        Matrix{Float32}(undef, vocab_size, dim),
-        Matrix{Float32}(undef, n_layers, dim),
-        Matrix{Float32}(undef, n_layers, dim),
-        Array{Float32}(undef, n_layers, dim, dim),
-        Array{Float32}(undef, n_layers, kv_dim, dim),
-        Array{Float32}(undef, n_layers, kv_dim, dim),
-        Array{Float32}(undef, n_layers, dim, dim),
-        Array{Float32}(undef, n_layers, hidden_dim, dim),
-        Array{Float32}(undef, n_layers, dim, hidden_dim),
-        Array{Float32}(undef, n_layers, hidden_dim, dim),
-        Vector{Float32}(undef, dim),
-        Matrix{Float32}(undef, vocab_size, dim),
+        Matrix{Float32}(undef, dim, vocab_size),
+        Matrix{Float32}(undef, dim, n_layers),
+        Matrix{Float32}(undef, dim, n_layers),
+        Array{Float32}(undef, dim, dim, n_layers),
+        Array{Float32}(undef, dim, kv_dim, n_layers),
+        Array{Float32}(undef, dim, kv_dim, n_layers),
+        Array{Float32}(undef, dim, dim, n_layers),
+        Array{Float32}(undef, dim, hidden_dim, n_layers),
+        Array{Float32}(undef, hidden_dim, dim, n_layers),
+        Array{Float32}(undef, dim, hidden_dim, n_layers),
+        Vector{Float32}(undef, config.dim),
+        Matrix{Float32}(undef, dim, vocab_size),
     )
 end
 
@@ -220,4 +222,54 @@ function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
     # classifier into logits
     s.logits = w.wcls * x
     return s.logits
+end
+
+"""
+TODO - what does this function do?
+"""
+function open_file(file_path::String)
+    file = open(file_path, "r")
+    config = read_config(file)
+    weights = readLlamaFiles(config, file)
+    return config, weights
+end
+
+function readLlamaFiles(config::Config, file::IOStream)
+    weights = TransformerWeights(config)
+    # read weights from file
+    read!(file, weights.token_embedding_table)
+    read!(file, weights.rms_att_weight)
+    read!(file, weights.rms_ffn_weight)
+    read!(file, weights.wq)
+    read!(file, weights.wk)
+    read!(file, weights.wv)
+    read!(file, weights.wo)
+    read!(file, weights.w1)
+    read!(file, weights.w2)
+    read!(file, weights.w3)
+    read!(file, weights.rms_final_weight)
+
+    # optional classifier weights
+    # read!(file, weights.wcls)
+    return weights
+end
+
+"""
+Read the config from a Kaparthy file
+
+llama2.c correspondence: read_config (l. 147)
+"""
+
+function read_config(file::IOStream)
+    # read config from file
+    config = Config(
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+    )
+    return config
 end
