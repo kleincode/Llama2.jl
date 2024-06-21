@@ -1,5 +1,6 @@
 using Llama2
 using Test
+using Downloads
 
 @testset "Transformer" begin
     @testset "Initialize Transformer Weights" begin
@@ -18,18 +19,18 @@ using Test
         head_size::Int32 = dim ÷ n_heads
 
         # test size of Transformer Weights
-        @test size(weights.token_embedding_table) == (vocab_size, dim)
-        @test size(weights.rms_att_weight) == (n_layers, dim)
-        @test size(weights.rms_ffn_weight) == (n_layers, dim)
+        @test size(weights.token_embedding_table) == (dim, vocab_size)
+        @test size(weights.rms_att_weight) == (dim, n_layers)
+        @test size(weights.rms_ffn_weight) == (dim, n_layers)
 
-        @test size(weights.wq) == (n_layers, dim, (n_heads * head_size))
-        @test size(weights.wk) == (n_layers, dim, (n_kv_heads * head_size))
-        @test size(weights.wv) == (n_layers, dim, (n_kv_heads * head_size))
-        @test size(weights.wo) == (n_layers, (n_heads * head_size), dim)
+        @test size(weights.wq) == ((n_heads * head_size), dim, n_layers)
+        @test size(weights.wk) == ((n_kv_heads * head_size), dim, n_layers)
+        @test size(weights.wv) == ((n_kv_heads * head_size), dim, n_layers)
+        @test size(weights.wo) == (dim, (n_heads * head_size), n_layers)
 
-        @test size(weights.w1) == (n_layers, hidden_dim, dim)
-        @test size(weights.w2) == (n_layers, dim, hidden_dim)
-        @test size(weights.w3) == (n_layers, hidden_dim, dim)
+        @test size(weights.w1) == (dim, hidden_dim, n_layers)
+        @test size(weights.w2) == (hidden_dim, dim, n_layers)
+        @test size(weights.w3) == (dim, hidden_dim, n_layers)
 
         @test size(weights.rms_final_weight) == (dim,)
     end
@@ -62,5 +63,25 @@ using Test
         @test size(state.logits) == (vocab_size,)
         @test size(state.key_cache) == (n_layers, seq_len, kv_dim)
         @test size(state.value_cache) == (n_layers, seq_len, kv_dim)
+    end
+
+    @testset "Read model.bin file from Karpathy" begin
+        llama_file = "../bin/transformer/stories15M.bin"
+        if !isfile(llama_file)
+            println("Downloading stories15M.bin...")
+            Downloads.download(
+                "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories15M.bin",
+                llama_file,
+            )
+            println("Download complete!")
+        end
+        @testset "Read Config from Bin File" begin
+            config, _ = open_file(llama_file)
+            @test typeof(config) == Config
+        end
+        @testset "Read TransformerWeights from Bin File" begin
+            _, weights = open_file(llama_file)
+            @test typeof(weights) == TransformerWeights
+        end
     end
 end

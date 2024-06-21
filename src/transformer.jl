@@ -5,22 +5,22 @@ llama2.c correspondence: TransformerWeights (l. 29)
 """
 struct TransformerWeights
     # token embedding table
-    token_embedding_table::Matrix{Float32} # (vocab_size, dim)
+    token_embedding_table::Matrix{Float32} # (dim, vocab_size)
 
     # weights
-    rms_att_weight::Matrix{Float32}         # (layer, dim)
-    rms_ffn_weight::Matrix{Float32}         # (layer, dim)
+    rms_att_weight::Matrix{Float32}         # (dim, layer)
+    rms_ffn_weight::Matrix{Float32}         # (dim, layer)
 
     # weights for matmuls (dim == n_heads * head_size)
-    wq::Array{Float32,3}  # (layer, dim, n_heads * head_size)
-    wk::Array{Float32,3}  # (layer, dim, n_kv_heads * head_size)
-    wv::Array{Float32,3}  # (layer, dim, n_kv_heads * head_size)
-    wo::Array{Float32,3}  # (layer, n_heads * head_size, dim)
+    wq::Array{Float32,3}  # (n_heads * head_size, layer, dim)
+    wk::Array{Float32,3}  # (n_kv_heads * head_size, layer, dim)
+    wv::Array{Float32,3}  # (n_kv_heads * head_size, layer, dim)
+    wo::Array{Float32,3}  # (n_kv_heads * head_size, layer, dim)
 
     # weights for ffn
-    w1::Array{Float32,3}  # (layer, hidden_dim, dim)
-    w2::Array{Float32,3}  # (layer, dim, hidden_dim)
-    w3::Array{Float32,3}  # (layer, hidden_dim, dim)
+    w1::Array{Float32,3}  # (dim, layer, hidden_dim)
+    w2::Array{Float32,3}  # (hidden_dim, dim, layer)
+    w3::Array{Float32,3}  # (dim, hidden_dim, layer)
 
     # final rmsnorm
     rms_final_weight::Vector{Float32} # (dim,)
@@ -110,16 +110,68 @@ function TransformerWeights(config::Config)
 
     # initialization of undefined arrays
     return TransformerWeights(
-        Matrix{Float32}(undef, config.vocab_size, config.dim),
-        Matrix{Float32}(undef, config.n_layers, config.dim),
-        Matrix{Float32}(undef, config.n_layers, config.dim),
-        Array{Float32}(undef, config.n_layers, config.dim, (config.n_heads * head_size)),
-        Array{Float32}(undef, config.n_layers, config.dim, (config.n_kv_heads * head_size)),
-        Array{Float32}(undef, config.n_layers, config.dim, (config.n_kv_heads * head_size)),
-        Array{Float32}(undef, config.n_layers, (config.n_heads * head_size), config.dim),
-        Array{Float32}(undef, config.n_layers, config.hidden_dim, config.dim),
-        Array{Float32}(undef, config.n_layers, config.dim, config.hidden_dim),
-        Array{Float32}(undef, config.n_layers, config.hidden_dim, config.dim),
+        Matrix{Float32}(undef, config.dim, config.vocab_size),
+        Matrix{Float32}(undef, config.dim, config.n_layers),
+        Matrix{Float32}(undef, config.dim, config.n_layers),
+        Array{Float32}(undef, (config.n_heads * head_size), config.dim, config.n_layers,),
+        Array{Float32}(undef, (config.n_kv_heads * head_size), config.dim, config.n_layers,),
+        Array{Float32}(undef, (config.n_kv_heads * head_size), config.dim, config.n_layers,),
+        Array{Float32}(undef, config.dim, (config.n_heads * head_size), config.n_layers,),
+        Array{Float32}(undef, config.dim, config.hidden_dim, config.n_layers),
+        Array{Float32}(undef, config.hidden_dim, config.dim, config.n_layers),
+        Array{Float32}(undef, config.dim, config.hidden_dim, config.n_layers,),
         Vector{Float32}(undef, config.dim),
     )
+end
+
+"""
+TODO - what does this function do?
+"""
+function open_file(file_path::String)
+    file = open(file_path, "r")
+    config = read_config(file)
+    weights = readLlamaFiles(config, file)
+    return config, weights
+end
+
+
+
+function readLlamaFiles(config::Config, file::IOStream)
+    weights = TransformerWeights(config)
+    # read weights from file
+    read!(file, weights.token_embedding_table)
+    read!(file, weights.rms_att_weight)
+    read!(file, weights.rms_ffn_weight)
+    read!(file, weights.wq)
+    read!(file, weights.wk)
+    read!(file, weights.wv)
+    read!(file, weights.wo)
+    read!(file, weights.w1)
+    read!(file, weights.w2)
+    read!(file, weights.w3)
+    read!(file, weights.rms_final_weight)
+
+    # optional classifier weights
+    # read!(file, weights.wcls)
+    return weights
+end
+
+"""
+Read the config from a Kaparthy file
+
+llama2.c correspondence: read_config (l. 147)
+"""
+
+function read_config(file::IOStream)
+    # read config from file
+    config = Config(
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+        read(file, Int32),
+    )
+    return config
 end
