@@ -59,8 +59,8 @@ using Downloads
         @test size(state.q) == (dim,)
         @test size(state.att) == (n_heads, seq_len)
         @test size(state.logits) == (vocab_size,)
-        @test size(state.key_cache) == (n_layers, seq_len, kv_dim)
-        @test size(state.value_cache) == (n_layers, seq_len, kv_dim)
+        @test size(state.key_cache) == (kv_dim, seq_len, n_layers)
+        @test size(state.value_cache) == (kv_dim, seq_len, n_layers)
     end
 
     @testset "Transformer forward with dummy weights" begin
@@ -78,7 +78,7 @@ using Downloads
         weights = TransformerWeights(config)
         transformer = Transformer(config, weights, state, 0, Float32[], 0)
 
-        for i in 1:seq_len
+        for i in 1:(seq_len - 1)
             forward(transformer, i, i)
         end
     end

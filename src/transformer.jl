@@ -17,7 +17,7 @@ struct TransformerWeights
     wq::Array{Float32,3}  # (n_heads * head_size, dim, n_layers)
     wk::Array{Float32,3}  # llama2.c says (kv_dim, dim, n_layers), should be (dim, kv_dim, n_layers)
     wv::Array{Float32,3}  # llama2.c says (kv_dim, dim, n_layers), should be (dim, kv_dim, n_layers)
-    wo::Array{Float32,3}  # (dim, n_heads * head_size, n_layers)
+    wo::Array{Float32,3}  # llama2.c says (dim, n_heads * head_size, n_layers), should be (n_heads * head_size, dim, n_layers)
 
     # weights for ffn
     w1::Array{Float32,3}  # (dim, hidden_dim, n_layers)
@@ -28,7 +28,7 @@ struct TransformerWeights
     rms_final_weight::Vector{Float32} # (dim,)
 
     # optional classifier weights
-    wcls::Matrix{Float32}  # (vocab_size, dim)
+    wcls::Matrix{Float32}  # (dim, vocab_size)
 end
 
 """
@@ -43,15 +43,15 @@ mutable struct RunState
     xb2::Vector{Float32}  # an additional buffer just for convenience (dim,)
     hb::Vector{Float32}  # buffer for hidden dimension in the ffn (hidden_dim,)
     hb2::Vector{Float32} # buffer for hidden dimension in the ffn (hidden_dim,)
-    q::Vector{Float32}  # query (dim,)
+    q::Vector{Float32}  # query (n_heads * head_size,)
     # k::Vector{Float32}   # key (dim,) - this is just a pointer to a portion of key_cache
     # v::Vector{Float32}   # value (dim,) - this is just a pointer to a portion of value_cache
     att::Array{Float32,2} # buffer for scores/attention values (n_heads, seq_len)
     logits::Array{Float32} # output logits (vocab_size,)
 
-    # kv cache
-    key_cache::Array{Float32,3}  # (n_layers, seq_len, kv_dim)
-    value_cache::Array{Float32,3}  # (n_layers, seq_len, kv_dim)
+    # kv cache (n_kv_heads * head_size == kv_dim)
+    key_cache::Array{Float32,3}  # (n_kv_heads * head_size, seq_len, n_layers)
+    value_cache::Array{Float32,3}  # (n_kv_heads * head_size, seq_len, n_layers)
 end
 
 """
@@ -93,8 +93,8 @@ function RunState(config::Config)
         # Array{Float32}(undef, config.dim),  # v
         Array{Float32}(undef, config.n_heads, config.seq_len),  # rms_att_weight
         Array{Float32}(undef, config.vocab_size),   # logits
-        Array{Float32}(undef, config.n_layers, config.seq_len, kv_dim),
-        Array{Float32}(undef, config.n_layers, config.seq_len, kv_dim),
+        Array{Float32}(undef, kv_dim, config.seq_len, config.n_layers),
+        Array{Float32}(undef, kv_dim, config.seq_len, config.n_layers),
     )
 end
 
@@ -128,7 +128,8 @@ end
 
 function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
     # a few convenience variables
-    (; dim, n_heads, n_kv_heads, n_layers) = transformer.config
+    (; dim, n_heads, n_kv_heads, n_layers, seq_len) = transformer.config
+    pos < seq_len || throw(ArgumentError("pos must be smaller than seq_len"))
     s = transformer.state
     w = transformer.weights
     kv_dim = (dim * n_kv_heads) ÷ n_heads
@@ -136,17 +137,17 @@ function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
     head_size = dim ÷ n_heads
 
     # copy the token embedding into x
-    x::Vector{Float32} = transformer.weights.token_embedding_table[token, :]
+    x::Vector{Float32} = transformer.weights.token_embedding_table[:, token] # (dim,)
 
     # forward all the layers
     for l in 1:n_layers
         # attention rmsnorm
-        s.xb = rmsnorm(x, w.rms_att_weight[l, :])
+        s.xb = rmsnorm(x, w.rms_att_weight[:, l]) # (n_heads * head_size,)
 
         # qkv matmuls for this position
-        s.q = w.wq[l, :, :] * s.xb # (dim,) = (dim,dim) * (dim,)
-        s.key_cache[l, pos, :] = w.wk[l, :, :] * s.xb # (kv_dim,) = (kv_dim,dim) * (dim,)
-        s.value_cache[l, pos, :] = w.wv[l, :, :] * s.xb # (kv_dim,) = (kv_dim,dim) * (dim,)
+        s.q = w.wq[:, :, l]' * s.xb # (n_heads * head_size,) = (dim, n_heads * head_size) * (n_heads * head_size,)
+        s.key_cache[:, pos, l] = w.wk[:, :, l]' * s.xb # (kv_dim,) = (kv_dim, dim) * (n_heads * head_size,)
+        s.value_cache[:, pos, l] = w.wv[:, :, l]' * s.xb # (kv_dim,) = (kv_dim, dim) * (n_heads * head_size,)
 
         # RoPE relative positional encoding: complex-valued rotate q and k in each head
         for i in 1:2:dim
@@ -164,10 +165,10 @@ function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
 
             # rotate key only if i < kv_dim
             if i < kv_dim
-                v0 = s.key_cache[l, pos, i]
-                v1 = s.key_cache[l, pos, i + 1]
-                s.key_cache[l, pos, i] = v0 * fcr - v1 * fci
-                s.key_cache[l, pos, i + 1] = v0 * fci + v1 * fcr
+                v0 = s.key_cache[i, pos, l]
+                v1 = s.key_cache[i + 1, pos, l]
+                s.key_cache[i, pos, l] = v0 * fcr - v1 * fci
+                s.key_cache[i + 1, pos, l] = v0 * fci + v1 * fcr
             end
         end
 
@@ -175,52 +176,52 @@ function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
         for h in 0:(n_heads - 1)
             # get the query vector for this head
             h_off = h * head_size
-            q = s.q[(h_off + 1):(h_off + head_size)]
+            q = s.q[(h_off + 1):(h_off + head_size)] # (head_size,)
             # iterate over all timesteps, including the current one
             kv_ind = (h ÷ kv_mul) * head_size
-            for t in 1:pos
-                k = s.key_cache[l, t, (kv_ind + 1):(kv_ind + head_size)]
-                score = (q ⋅ k) / sqrt(Float32(head_size))
+            for t in 1:(pos + 1)
+                k = s.key_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
+                score = (q ⋅ k) / sqrt(Float32(head_size)) # scalar
                 s.att[h + 1, t] = score
             end
-            # softmax the scores to get attention weights, from 1..pos inclusively
-            s.att[h + 1, 1:pos] = softmax(s.att[h + 1, 1:pos])
+            # softmax the scores to get attention weights, from 1..(pos+1) inclusively
+            s.att[h + 1, 1:(pos + 1)] = softmax(s.att[h + 1, 1:(pos + 1)]) # (pos+1,)
             # weighted sum of the values, store back into xb
-            s.xb[(h_off + 1):(h_off + head_size)] .= 0
-            for t in 1:pos
+            s.xb[(h_off + 1):(h_off + head_size)] .= 0 # (head_size,)
+            for t in 1:(pos + 1)
                 # get the value vector for this head and at this timestep
-                v = s.value_cache[l, t, (kv_ind + 1):(kv_ind + head_size)]
+                v = s.value_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
                 # accumulate the weighted value into xb
-                s.xb[(h_off + 1):(h_off + head_size)] += s.att[h + 1, t] * v
+                s.xb[(h_off + 1):(h_off + head_size)] += s.att[h + 1, t] * v # (head_size,) = scalar * (head_size,)
             end
         end
 
         # final matmul to get the output of the attention
-        s.xb2 = w.wo[l, :, :] * s.xb
+        s.xb2 = w.wo[:, :, l]' * s.xb # (dim,) = (dim, n_heads * head_size) * (n_heads * head_size,)
 
         # residual connection back into x
-        x += s.xb2
+        x += s.xb2 # (dim,) = (dim,)
 
         # ffn rmsnorm
-        s.xb = rmsnorm(s.xb, w.rms_ffn_weight[l, :])
+        s.xb = rmsnorm(s.xb, w.rms_ffn_weight[:, l]) # (dim,)
 
         # Now for FFN in PyTorch we have: self.w2(F.silu(self.w1(x)) * self.w3(x))
         # first calculate self.w1(x) and self.w3(x)
-        s.hb = w.w1[l, :, :] * s.xb
-        s.hb2 = w.w3[l, :, :] * s.xb
+        s.hb = w.w1[:, :, l]' * s.xb # (hidden_dim,) = (hidden_dim, dim) * (dim,)
+        s.hb2 = w.w3[:, :, l]' * s.xb # (hidden_dim,) = (hidden_dim, dim) * (dim,)
 
         # SwiGLU non-linearity
-        s.hb = swiglu(s.hb, s.hb2)
+        s.hb = swiglu(s.hb, s.hb2) # (hidden_dim,)
         # final matmul to get the output of the ffn
-        s.xb = w.w2[l, :, :] * s.hb
+        s.xb = w.w2[:, :, l]' * s.hb # (dim,) = (dim, hidden_dim) * (hidden_dim,)
         # residual connection
-        x += s.xb
+        x += s.xb # (dim,)
     end
 
     # final rmsnorm
     x = rmsnorm(x, w.rms_final_weight)
     # classifier into logits
-    s.logits = w.wcls * x
+    s.logits = w.wcls' * x # (vocab_size,) = (vocab_size, dim) * (dim,)
     return s.logits
 end
 
