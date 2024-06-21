@@ -7,7 +7,7 @@ include("sampler.jl")
 include("math_llama.jl")
 
 export Sampler, sample_topp, sample_argmax, sample_mult, softmax
-export Tokenizer, decode
+export Tokenizer, encode, decode
 export Config
 export Transformer, RunState, TransformerWeights, readLlamaFiles, read_config, open_file
 export rmsnorm, softmax, swiglu

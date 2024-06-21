@@ -69,8 +69,9 @@ struct Transformer
 end
 
 """
+    RunState(config::Config)
+
 Initialization of RunState based on Config
-- initialized as undefined arrays
 
 llama2.c correspondence: malloc_run_state (l. 77)
 """
@@ -97,8 +98,9 @@ function RunState(config::Config)
 end
 
 """
+    TransformerWeights(config::Config)
+
 Initialize transformer weights based on Config
-- initialized as undefined arrays
 
 llama2.c correspondence: memory_map_weights (l. 111)
 """
