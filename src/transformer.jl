@@ -63,11 +63,6 @@ struct Transformer
     config::Config # hyperparameters of the architecture
     weights::TransformerWeights # weights of the module
     state::RunState # buffers for the wave of activations in the forward pass
-
-    # some more states for clean up of memory mapping (do we need that?)
-    fd::Int32 # file descriptor for memory mapping
-    data::Array{Float32} # memory mapped data pointer
-    file_size::Int32 # size of checkpoint file in bytes
 end
 
 """
@@ -252,6 +247,8 @@ function readLlamaFiles(config::Config, file::IOStream)
 
     # optional classifier weights
     # read!(file, weights.wcls)
+    # usually identical -> just copy
+    weights.wcls[:] = weights.token_embedding_table[:]
     return weights
 end
 
