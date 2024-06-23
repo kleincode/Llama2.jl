@@ -32,7 +32,7 @@ struct TransformerWeights
 end
 
 """
-Initial parameters for the run state
+State of the transformer.
 
 llama2.c correspondence: RunState (l. 50)
 """
@@ -121,10 +121,19 @@ function TransformerWeights(config::Config)
     )
 end
 
-function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
+"""
+    forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
+
+A single complete transformer forward pass for input token `token` at position `pos`, returning the output logits.
+`pos` is one-based, i.e. 1 <= pos < seq_len.
+This modifies the RunState of the transformer.
+
+llama2.c correspondence: forward (l. 231)
+"""
+function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
     # a few convenience variables
     (; dim, n_heads, n_kv_heads, n_layers, seq_len) = transformer.config
-    pos < seq_len || throw(ArgumentError("pos must be smaller than seq_len"))
+    1 <= pos < seq_len || throw(ArgumentError("1 <= pos < seq_len is required"))
     s = transformer.state
     w = transformer.weights
     kv_dim = (dim * n_kv_heads) ÷ n_heads
@@ -148,7 +157,7 @@ function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
         for i in 1:2:dim
             head_dim = (i - 1) % head_size
             freq = 1.0f0 / (10000.0f0^(head_dim / head_size))
-            val = pos * freq
+            val = (pos - 1) * freq
             fcr = cos(val)
             fci = sin(val)
 
@@ -221,25 +230,37 @@ function forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
 end
 
 """
-TODO - what does this function do?
+    read_karpathy(file_path::String)
+Reads Config and TransformerWeights from a Karpathy binary file, as defined in llama2.c.
 """
-function open_file(file_path::String)
-    file = open(file_path, "r")
-    config = read_config(file)
-    weights = readLlamaFiles(config, file)
-    return config, weights
+function read_karpathy(file_path::String)
+    open(file_path, "r") do file
+        config = read_karpathy_config(file)
+        weights = read_karpathy_weights(config, file)
+        return config, weights
+    end
 end
 
-function readLlamaFiles(config::Config, file::IOStream)
+"""
+    read_karpathy_weights(config::Config, file::IOStream)
+Reads TransformerWeights from a Karpathy binary file, as defined in llama2.c.
+The function assumes that the provided `IOStream` is already pointing to the beginning of the weights section.
+
+The classifier weights are always assumed to be identical to the `token_embedding_table`
+because the config is guaranteed to have positive `vocab_size`, meaning that the weights are shared.
+
+llama2.c correspondence: memory_map_weights (l. 111)
+"""
+function read_karpathy_weights(config::Config, file::IOStream)
     weights = TransformerWeights(config)
     # read weights from file
     read!(file, weights.token_embedding_table)
     read!(file, weights.rms_att_weight)
-    read!(file, weights.rms_ffn_weight)
     read!(file, weights.wq)
     read!(file, weights.wk)
     read!(file, weights.wv)
     read!(file, weights.wo)
+    read!(file, weights.rms_ffn_weight)
     read!(file, weights.w1)
     read!(file, weights.w2)
     read!(file, weights.w3)
@@ -253,12 +274,16 @@ function readLlamaFiles(config::Config, file::IOStream)
 end
 
 """
-Read the config from a Kaparthy file
+    read_karpathy_config(file::IOStream)
+Reads a Config instance from a Karpathy binary file, as defined in llama2.c
+
+Note that this function advances the pointer of file by 7 Int32s.
+The config section of a Karpathy binary file is by definition the beginning of the file.
 
 llama2.c correspondence: read_config (l. 147)
 """
 
-function read_config(file::IOStream)
+function read_karpathy_config(file::IOStream)
     # read config from file
     config = Config(
         read(file, Int32),

@@ -78,17 +78,13 @@ end
 
     @testset "Read stories15M.bin file from Karpathy" begin
         llama_file = get_stories15M()
-        @testset "Read Config from Bin File" begin
-            config, _ = open_file(llama_file)
-            @test typeof(config) == Config
-        end
-        @testset "Read TransformerWeights from Bin File" begin
-            _, weights = open_file(llama_file)
-            @test typeof(weights) == TransformerWeights
-        end
+        config, weights = read_karpathy(llama_file)
+        @test typeof(config) == Config
+        @test typeof(weights) == TransformerWeights
+        @test weights.wcls == weights.token_embedding_table
     end
 
-    @testset "Transformer forward" begin
+    @testset "Transformer forward!" begin
         @testset "With dummy weights" begin
             # initialize Config
             dim::Int32 = 8
@@ -106,27 +102,34 @@ end
             weights = TransformerWeights(config)
             transformer = Transformer(config, weights, state)
 
+            @test_throws ArgumentError forward!(transformer, 5, 0)
+
             for i in 1:(seq_len - 1)
-                forward(transformer, i, i)
+                forward!(transformer, i, i)
             end
+
+            @test_throws ArgumentError forward!(transformer, 5, Int(seq_len))
         end
 
         @testset "With stories15M.bin" begin
-            config, weights = open_file(get_stories15M())
+            config, weights = read_karpathy(get_stories15M())
             state = RunState(config)
             transformer = Transformer(config, weights, state)
             tokenizer = Tokenizer("../bin/tokenizer/tokenizer.bin", 32000)
             sampler = Sampler(1.0, 0.9, 420)
 
-            prompt = encode(tokenizer, "Once upon a time")
+            prompt = encode(tokenizer, "Once upon a")
             token = popfirst!(prompt)
             for i in 1:(config.seq_len - 1)
-                logits = forward(transformer, token, i)
+                logits = forward!(transformer, token, i)
                 # println(logits)
                 if isempty(prompt)
                     token = sampler(logits)
                 else
                     token = popfirst!(prompt)
+                    if isempty(prompt)
+                        print("'GO'")
+                    end
                 end
                 print(decode(tokenizer, 1, token))
                 if token == 3 # EOS
