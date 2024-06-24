@@ -1,7 +1,7 @@
 using LinearAlgebra
 
 """
-Initial parameters for the transformer weights
+Weights for the Llama2 transformer model.
 
 llama2.c correspondence: TransformerWeights (l. 29)
 """
@@ -32,7 +32,7 @@ struct TransformerWeights
 end
 
 """
-State of the transformer.
+State of the transformer model. Modified during a forward pass.
 
 llama2.c correspondence: RunState (l. 50)
 """
@@ -55,7 +55,7 @@ mutable struct RunState
 end
 
 """
-Initial parameters for the transformer
+A transformer model, consisting of a config, weights, and a run state.
 
 llama2.c correspondence: Transformer (l. 67)
 """
@@ -68,7 +68,7 @@ end
 """
     RunState(config::Config)
 
-Initialization of RunState based on Config
+Initializes the matrices in RunState based on the shapes provided in the Config.
 
 llama2.c correspondence: malloc_run_state (l. 77)
 """
@@ -96,7 +96,7 @@ end
 """
     TransformerWeights(config::Config)
 
-Initialize transformer weights based on Config
+Initialize transformer weight matrices based on Config.
 
 llama2.c correspondence: memory_map_weights (l. 111)
 """
@@ -122,10 +122,10 @@ function TransformerWeights(config::Config)
 end
 
 """
-    forward(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
+    forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
 
 A single complete transformer forward pass for input token `token` at position `pos`, returning the output logits.
-`pos` is one-based, i.e. 1 <= pos < seq_len.
+`pos` is one-based, i.e. 1 <= pos <= seq_len.
 This modifies the RunState of the transformer.
 
 llama2.c correspondence: forward (l. 231)
@@ -133,7 +133,7 @@ llama2.c correspondence: forward (l. 231)
 function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
     # a few convenience variables
     (; dim, n_heads, n_kv_heads, n_layers, seq_len) = transformer.config
-    1 <= pos < seq_len || throw(ArgumentError("1 <= pos < seq_len is required"))
+    1 <= pos <= seq_len || throw(ArgumentError("1 <= pos <= seq_len is required"))
     s = transformer.state
     w = transformer.weights
     kv_dim = (dim * n_kv_heads) ÷ n_heads
@@ -141,12 +141,12 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
     head_size = dim ÷ n_heads
 
     # copy the token embedding into x
-    x::Vector{Float32} = transformer.weights.token_embedding_table[:, token] # (dim,)
+    s.x = w.token_embedding_table[:, token] # (dim,)
 
     # forward all the layers
     for l in 1:n_layers
         # attention rmsnorm
-        s.xb = rmsnorm(x, w.rms_att_weight[:, l]) # (n_heads * head_size,)
+        s.xb = rmsnorm(s.x, w.rms_att_weight[:, l]) # (n_heads * head_size,)
 
         # qkv matmuls for this position
         s.q = w.wq[:, :, l]' * s.xb # (n_heads * head_size,) = (dim, n_heads * head_size) * (n_heads * head_size,)
@@ -167,8 +167,8 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
             s.q[i] = v0 * fcr - v1 * fci
             s.q[i + 1] = v0 * fci + v1 * fcr
 
-            # rotate key only if i < kv_dim
-            if i < kv_dim
+            # rotate key only if i <= kv_dim
+            if i <= kv_dim
                 v0 = s.key_cache[i, pos, l]
                 v1 = s.key_cache[i + 1, pos, l]
                 s.key_cache[i, pos, l] = v0 * fcr - v1 * fci
@@ -183,16 +183,16 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
             q = s.q[(h_off + 1):(h_off + head_size)] # (head_size,)
             # iterate over all timesteps, including the current one
             kv_ind = (h ÷ kv_mul) * head_size
-            for t in 1:(pos + 1)
+            for t in 1:pos
                 k = s.key_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
                 score = (q ⋅ k) / sqrt(Float32(head_size)) # scalar
                 s.att[h + 1, t] = score
             end
-            # softmax the scores to get attention weights, from 1..(pos+1) inclusively
-            s.att[h + 1, 1:(pos + 1)] = softmax(s.att[h + 1, 1:(pos + 1)]) # (pos+1,)
+            # softmax the scores to get attention weights, from 1..pos inclusively
+            s.att[h + 1, 1:pos] = softmax(s.att[h + 1, 1:pos]) # (pos,)
             # weighted sum of the values, store back into xb
             s.xb[(h_off + 1):(h_off + head_size)] .= 0 # (head_size,)
-            for t in 1:(pos + 1)
+            for t in 1:pos
                 # get the value vector for this head and at this timestep
                 v = s.value_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
                 # accumulate the weighted value into xb
@@ -204,10 +204,10 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
         s.xb2 = w.wo[:, :, l]' * s.xb # (dim,) = (dim, n_heads * head_size) * (n_heads * head_size,)
 
         # residual connection back into x
-        x += s.xb2 # (dim,) = (dim,)
+        s.x += s.xb2 # (dim,) += (dim,)
 
         # ffn rmsnorm
-        s.xb = rmsnorm(s.xb, w.rms_ffn_weight[:, l]) # (dim,)
+        s.xb = rmsnorm(s.x, w.rms_ffn_weight[:, l]) # (dim,)
 
         # Now for FFN in PyTorch we have: self.w2(F.silu(self.w1(x)) * self.w3(x))
         # first calculate self.w1(x) and self.w3(x)
@@ -219,80 +219,12 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
         # final matmul to get the output of the ffn
         s.xb = w.w2[:, :, l]' * s.hb # (dim,) = (dim, hidden_dim) * (hidden_dim,)
         # residual connection
-        x += s.xb # (dim,)
+        s.x += s.xb # (dim,)
     end
 
     # final rmsnorm
-    x = rmsnorm(x, w.rms_final_weight)
+    s.x = rmsnorm(s.x, w.rms_final_weight)
     # classifier into logits
-    s.logits = w.wcls' * x # (vocab_size,) = (vocab_size, dim) * (dim,)
+    s.logits = w.wcls' * s.x # (vocab_size,) = (vocab_size, dim) * (dim,)
     return s.logits
-end
-
-"""
-    read_karpathy(file_path::String)
-Reads Config and TransformerWeights from a Karpathy binary file, as defined in llama2.c.
-"""
-function read_karpathy(file_path::String)
-    open(file_path, "r") do file
-        config = read_karpathy_config(file)
-        weights = read_karpathy_weights(config, file)
-        return config, weights
-    end
-end
-
-"""
-    read_karpathy_weights(config::Config, file::IOStream)
-Reads TransformerWeights from a Karpathy binary file, as defined in llama2.c.
-The function assumes that the provided `IOStream` is already pointing to the beginning of the weights section.
-
-The classifier weights are always assumed to be identical to the `token_embedding_table`
-because the config is guaranteed to have positive `vocab_size`, meaning that the weights are shared.
-
-llama2.c correspondence: memory_map_weights (l. 111)
-"""
-function read_karpathy_weights(config::Config, file::IOStream)
-    weights = TransformerWeights(config)
-    # read weights from file
-    read!(file, weights.token_embedding_table)
-    read!(file, weights.rms_att_weight)
-    read!(file, weights.wq)
-    read!(file, weights.wk)
-    read!(file, weights.wv)
-    read!(file, weights.wo)
-    read!(file, weights.rms_ffn_weight)
-    read!(file, weights.w1)
-    read!(file, weights.w2)
-    read!(file, weights.w3)
-    read!(file, weights.rms_final_weight)
-
-    # optional classifier weights
-    # read!(file, weights.wcls)
-    # usually identical -> just copy
-    weights.wcls[:] = weights.token_embedding_table[:]
-    return weights
-end
-
-"""
-    read_karpathy_config(file::IOStream)
-Reads a Config instance from a Karpathy binary file, as defined in llama2.c
-
-Note that this function advances the pointer of file by 7 Int32s.
-The config section of a Karpathy binary file is by definition the beginning of the file.
-
-llama2.c correspondence: read_config (l. 147)
-"""
-
-function read_karpathy_config(file::IOStream)
-    # read config from file
-    config = Config(
-        read(file, Int32),
-        read(file, Int32),
-        read(file, Int32),
-        read(file, Int32),
-        read(file, Int32),
-        read(file, Int32),
-        read(file, Int32),
-    )
-    return config
 end

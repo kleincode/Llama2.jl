@@ -1,19 +1,5 @@
 using Llama2
 using Test
-using Downloads
-
-function get_stories15M()
-    llama_file = "../bin/transformer/stories15M.bin"
-    if !isfile(llama_file)
-        println("Downloading stories15M.bin...")
-        Downloads.download(
-            "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories15M.bin",
-            llama_file,
-        )
-        println("Download complete!")
-    end
-    return llama_file
-end
 
 @testset "Transformer" begin
     @testset "Initialize Transformer Weights" begin
@@ -76,14 +62,6 @@ end
         @test size(state.value_cache) == (kv_dim, seq_len, n_layers)
     end
 
-    @testset "Read stories15M.bin file from Karpathy" begin
-        llama_file = get_stories15M()
-        config, weights = read_karpathy(llama_file)
-        @test typeof(config) == Config
-        @test typeof(weights) == TransformerWeights
-        @test weights.wcls == weights.token_embedding_table
-    end
-
     @testset "Transformer forward!" begin
         @testset "With dummy weights" begin
             # initialize Config
@@ -104,11 +82,11 @@ end
 
             @test_throws ArgumentError forward!(transformer, 5, 0)
 
-            for i in 1:(seq_len - 1)
+            for i in 1:seq_len
                 forward!(transformer, i, i)
             end
 
-            @test_throws ArgumentError forward!(transformer, 5, Int(seq_len))
+            @test_throws ArgumentError forward!(transformer, 5, Int(seq_len + 1))
         end
 
         @testset "With stories15M.bin" begin
@@ -120,22 +98,34 @@ end
 
             prompt = encode(tokenizer, "Once upon a")
             token = popfirst!(prompt)
-            for i in 1:(config.seq_len - 1)
+            output = ""
+            for i in 1:(config.seq_len)
+                old_x = copy(state.x)
+                old_xb = copy(state.xb)
+                old_xb2 = copy(state.xb2)
+                old_logits = copy(state.logits)
                 logits = forward!(transformer, token, i)
+                @test !(old_x ≈ state.x)
+                @test !(old_xb ≈ state.xb)
+                @test !(old_xb2 ≈ state.xb2)
+                @test !(old_logits ≈ state.logits)
                 # println(logits)
                 if isempty(prompt)
                     token = sampler(logits)
                 else
                     token = popfirst!(prompt)
-                    if isempty(prompt)
-                        print("'GO'")
-                    end
                 end
-                print(decode(tokenizer, 1, token))
+                decoded = decode(tokenizer, 1, token)
+                output *= decoded
+                print(decoded)
                 if token == 3 # EOS
+                    println()
                     break
                 end
             end
+            @test startswith(
+                strip(output), "Once upon a time, there was a little girl named Lily."
+            )
         end
     end
 end
