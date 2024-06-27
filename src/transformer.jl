@@ -177,26 +177,26 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
         end
 
         # iterate over all heads
-        for h in 0:(n_heads - 1)
+        for h in 1:n_heads
             # get the query vector for this head
-            h_off = h * head_size
+            h_off = (h - 1) * head_size
             q = s.q[(h_off + 1):(h_off + head_size)] # (head_size,)
             # iterate over all timesteps, including the current one
-            kv_ind = (h ÷ kv_mul) * head_size
+            kv_ind = ((h - 1) ÷ kv_mul) * head_size
             for t in 1:pos
                 k = s.key_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
                 score = (q ⋅ k) / sqrt(Float32(head_size)) # scalar
-                s.att[h + 1, t] = score
+                s.att[h, t] = score
             end
             # softmax the scores to get attention weights, from 1..pos inclusively
-            s.att[h + 1, 1:pos] = softmax(s.att[h + 1, 1:pos]) # (pos,)
+            s.att[h, 1:pos] = softmax(s.att[h, 1:pos]) # (pos,)
             # weighted sum of the values, store back into xb
             s.xb[(h_off + 1):(h_off + head_size)] .= 0 # (head_size,)
             for t in 1:pos
                 # get the value vector for this head and at this timestep
                 v = s.value_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
                 # accumulate the weighted value into xb
-                s.xb[(h_off + 1):(h_off + head_size)] += s.att[h + 1, t] * v # (head_size,) = scalar * (head_size,)
+                s.xb[(h_off + 1):(h_off + head_size)] += s.att[h, t] * v # (head_size,) = scalar * (head_size,)
             end
         end
 
