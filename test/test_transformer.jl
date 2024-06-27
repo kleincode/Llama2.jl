@@ -94,7 +94,7 @@ using Test
             state = RunState(config)
             transformer = Transformer(config, weights, state)
             tokenizer = Tokenizer("../bin/tokenizer/tokenizer.bin", 32000)
-            sampler = Sampler(1.0, 0.9, 420)
+            sampler = Sampler(1.0f0, 0.9f0, 420)
 
             prompt = encode(tokenizer, "Once upon a")
             token = popfirst!(prompt)

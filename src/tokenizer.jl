@@ -26,7 +26,7 @@ Tokenizer(["<unk>", "\n<s>\n", "\n</s>\n", "<0x00>", "<0x01>", "<0x02>", "<0x03>
 
 llama2.c correspondence: build_tokenizer (l. 385)
 """
-struct Tokenizer{T<:Float32}
+struct Tokenizer{T<:Real}
     "Maps a token index to its string representation, for decoding"
     index_to_token::Vector{String}
     "Maps a token string to its token index, for encoding"
@@ -35,7 +35,7 @@ struct Tokenizer{T<:Float32}
     vocab_scores::Vector{T} # for encoding
 
     "Constructs a Tokenizer from a list of tokens and scores."
-    function Tokenizer(tokens::Vector{String}, scores::Vector{T}) where {T<:Float32}
+    function Tokenizer(tokens::Vector{String}, scores::Vector{T}) where {T<:Real}
         # Input checks
         n = length(tokens)
         n > 0 || throw(ArgumentError("Tokens must not be empty"))
@@ -122,7 +122,7 @@ function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
 
     # merge the best consecutive pair each iteration
     while true
-        best_score::Float32 = -1.0f10
+        best_score::Real = -1.0f10
         best_id::Int32 = -1
         best_idx::Int32 = -1
 
