@@ -97,7 +97,7 @@ function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
 
     # merge the best consecutive pair each iteration
     while true
-        best_score::Float32 = -1f10
+        best_score::Float32 = -1.0f10
         best_id::Int32 = -1
         best_idx::Int32 = -1
 
@@ -105,7 +105,7 @@ function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
             # merge consecutive tokens 
             merged_token =
                 tokenizer.index_to_token[tokens[i]] *
-                tokenizer.index_to_token[tokens[i+1]]
+                tokenizer.index_to_token[tokens[i + 1]]
 
             # check if merged_token exists
             id = get(tokenizer.token_to_index, merged_token, nothing)
@@ -133,7 +133,7 @@ function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
     # add EOS token, optional
     if eos_token == true
         push!(tokens, EOS_TOKEN)
-    end 
+    end
 
     # return encoded tokens
     return tokens
