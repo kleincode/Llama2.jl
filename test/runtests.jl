@@ -10,4 +10,5 @@ include("utils.jl")
     include("test_config.jl")
     include("test_read_karpathy.jl")
     include("test_transformer.jl")
+    include("test_generate.jl")
 end

@@ -6,6 +6,7 @@ include("tokenizer.jl")
 include("sampler.jl")
 include("math_llama.jl")
 include("read_karpathy.jl")
+include("generate.jl")
 
 export Sampler, sample_topp, sample_argmax, sample_mult, softmax
 export Tokenizer, encode, decode
@@ -18,5 +19,6 @@ export Transformer,
     read_karpathy,
     forward!
 export rmsnorm, softmax, swiglu
+export generate
 
 end
