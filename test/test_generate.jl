@@ -51,6 +51,22 @@ using Test
         @test !isempty(output)
     end
 
+    @testset "display output & verbose" begin
+        display_prompt = "Once upon a time, there was a little language model named Llama." 
+        output = generate(
+            transformer,
+            tokenizer,
+            sampler_2,
+            display_prompt,
+            false,
+            true,
+            true,
+            true
+        )
+        @test typeof(output) == String
+        @test !isempty(output)
+    end
+
     @testset "extend" begin
         sampler_1 = Sampler(0.5, 1.0, 420)
         output = generate(
