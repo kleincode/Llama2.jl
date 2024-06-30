@@ -13,7 +13,7 @@ using Test
         seq_len::Int32 = 2
 
         config = Config(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
-        weights = TransformerWeights(config)
+        weights = TransformerWeights{Float32}(config)
 
         head_size::Int32 = dim ÷ n_heads
 
@@ -45,7 +45,7 @@ using Test
         seq_len::Int32 = 2
 
         config = Config(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
-        state = RunState(config)
+        state = RunState{Float32}(config)
 
         kv_dim::Int32 = (dim * n_kv_heads) ÷ n_heads
 
@@ -76,8 +76,8 @@ using Test
             config = Config(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
-            state = RunState(config)
-            weights = TransformerWeights(config)
+            state = RunState{Float32}(config)
+            weights = TransformerWeights{Float32}(config)
             transformer = Transformer(config, weights, state)
 
             @test_throws ArgumentError forward!(transformer, 5, 0)
@@ -91,8 +91,8 @@ using Test
 
         @testset "With stories15M.bin" begin
             config, weights = read_karpathy(get_stories15M())
-            state = RunState(config)
-            transformer = Transformer(config, weights, state)
+            state = RunState{Float32}(config)
+            transformer = Transformer{Float32}(config, weights, state)
             tokenizer = Tokenizer("../bin/tokenizer/tokenizer.bin", 32000)
             sampler = Sampler(1.0f0, 0.9f0, 420)
 

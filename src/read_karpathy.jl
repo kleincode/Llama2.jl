@@ -21,7 +21,7 @@ because the config is guaranteed to have positive `vocab_size`, meaning that the
 llama2.c correspondence: memory_map_weights (l. 111)
 """
 function read_karpathy_weights(config::Config, file::IOStream)
-    weights = TransformerWeights(config)
+    weights = TransformerWeights{Float32}(config)
     # read weights from file
     read!(file, weights.token_embedding_table)
     read!(file, weights.rms_att_weight)
