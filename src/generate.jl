@@ -17,7 +17,7 @@ llama.c correspondence: generation loop (l. 729-783)
     display_prompt::Bool=true,
 )
 
-Sample the next token (id) based on the logits and the sampler parameters.
+Generate a sequence based on a given language model, tokenizer, sampler and prompt.
 """
 function generate(
     model::Transformer,
