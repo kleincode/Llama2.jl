@@ -36,10 +36,8 @@ function generate(
 
     # Encode the prompt
     prompt_tokens = encode(tokenizer, prompt)
-    if isempty(prompt_tokens)
-        error("something is wrong, expected at least 1 prompt token")
-    end
-
+    !isempty(prompt_tokens) || throw(error("something is wrong, expected at least 1 prompt token"))
+    
     token = prompt_tokens[1]
     output = ""
     start = nothing
