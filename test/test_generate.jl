@@ -2,7 +2,7 @@ using Llama2
 using Test
 
 # Define the tests
-@testset "generate_sequence tests" begin
+@testset "generate" begin
 
     # Initialize model and tokenizer
     config, weights = read_karpathy(get_stories15M())
@@ -13,14 +13,14 @@ using Test
     sampler_2 = Sampler(1.0, 0.2, 187)
 
     @testset "Empty prompt" begin
-        output = generate(transformer, tokenizer, sampler_2, "", false, false, false, false)
+        output = generate(transformer, tokenizer, sampler_2, "", false, false, false)
         @test typeof(output) == String
         @test !isempty(output)
     end
 
     @testset "Single word prompt" begin
         output = generate(
-            transformer, tokenizer, sampler_1, "Hello", false, false, false, false
+            transformer, tokenizer, sampler_1, "Hello", false, false, false
         )
         @test typeof(output) == String
         @test !isempty(output)
@@ -29,7 +29,7 @@ using Test
     @testset "Long prompt" begin
         long_prompt = "Once upon a time, in a faraway land, there was a small village surrounded by lush green forests and flowing rivers. The villagers were known for their"
         output = generate(
-            transformer, tokenizer, sampler_1, long_prompt, false, false, false, false
+            transformer, tokenizer, sampler_1, long_prompt, false, false, false
         )
         @test typeof(output) == String
         @test !isempty(output)
@@ -44,8 +44,7 @@ using Test
             special_char_prompt,
             false,
             false,
-            false,
-            false,
+            false
         )
         @test typeof(output) == String
         @test !isempty(output)
@@ -57,11 +56,7 @@ using Test
             transformer,
             tokenizer,
             sampler_2,
-            display_prompt,
-            false,
-            true,
-            true,
-            true
+            display_prompt
         )
         @test typeof(output) == String
         @test !isempty(output)
@@ -76,8 +71,7 @@ using Test
             "The quick brown fox jumps over",
             false,
             false,
-            false,
-            false,
+            false
         )
         @test endswith(output, "They play")
 
@@ -87,10 +81,10 @@ using Test
             tokenizer,
             sampler_1,
             "The quick brown fox jumps over",
-            true,
             false,
             false,
             false,
+            1000
         )
         @test endswith(output_extend, "They play together and have fun.")
 
@@ -111,7 +105,6 @@ using Test
                 false,
                 false,
                 false,
-                false,
             )
             @test typeof(output) == String
             @test !isempty(output)
@@ -121,10 +114,10 @@ using Test
                 tokenizer,
                 sampler_2,
                 very_long_prompt,
-                true,
                 false,
                 false,
                 false,
+                1000
             )
             @test typeof(output_extend) == String
             @test !isempty(output_extend)
