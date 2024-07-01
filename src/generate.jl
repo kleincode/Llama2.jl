@@ -1,23 +1,15 @@
 """
-Used to generate a sequence based on a given language model.
-
-
-llama.c correspondence: generation loop (l. 729-783)
-"""
-
-"""
-    function generate(
-    model::Transformer,
-    tokenizer::Tokenizer,
-    sampler::Sampler,
-    prompt::String,
-    extend::Bool=true,
-    verbose::Bool=true,
-    display_output::Bool=true,
-    display_prompt::Bool=true,
-)
+$(TYPEDSIGNATURES)
 
 Generate a sequence based on a given language model, tokenizer, sampler and prompt.
+
+There are several optional boolean flags:
+* `verbose::Bool`: Print the achieved tokens/s
+* `display_output::Bool`: Print the output
+* `display_prompt::Bool`: Print the prompt. Ignored if `display_output` is `false`.
+* `max_steps::Int`: Maximum number of generation steps.
+
+llama2.c correspondence: generation loop (l. 729-783)
 """
 function generate(
     model::Transformer,

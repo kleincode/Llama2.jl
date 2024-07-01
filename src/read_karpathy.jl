@@ -44,7 +44,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Read the config of a Karpathy file and return that Configuration using the [`config`](@ref) function. 
+Read a [`Config`](@ref) from a Karpathy model file.
 
 llama2.c correspondence: read_config (l. 147)
 """
