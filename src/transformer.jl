@@ -1,136 +1,194 @@
 using LinearAlgebra
 
 """
-Weights for the Llama2 transformer model.
+$(TYPEDEF)
+    function TransformerWeights(config::Config) where {T<:Real}
+
+Holds the weights for the Llama2 transformer model.
+
+## Fields
+$(TYPEDFIELDS)
 
 llama2.c correspondence: TransformerWeights (l. 29)
-"""
-struct TransformerWeights
-    # token embedding table
-    token_embedding_table::Matrix{Float32} # (dim, vocab_size)
 
-    # weights
-    rms_att_weight::Matrix{Float32}         # (dim, n_layers)
-    rms_ffn_weight::Matrix{Float32}         # (dim, n_layers)
+## Allocate from config
+To create a new `TransformerWeights` instance with preallocated matrices, use the config constructor:
 
-    # weights for matmuls (dim == n_heads * head_size)
-    wq::Array{Float32,3}  # (n_heads * head_size, dim, n_layers)
-    wk::Array{Float32,3}  # llama2.c says (kv_dim, dim, n_layers), should be (dim, kv_dim, n_layers)
-    wv::Array{Float32,3}  # llama2.c says (kv_dim, dim, n_layers), should be (dim, kv_dim, n_layers)
-    wo::Array{Float32,3}  # llama2.c says (dim, n_heads * head_size, n_layers), should be (n_heads * head_size, dim, n_layers)
-
-    # weights for ffn
-    w1::Array{Float32,3}  # (dim, hidden_dim, n_layers)
-    w2::Array{Float32,3}  # (hidden_dim, dim, n_layers)
-    w3::Array{Float32,3}  # (dim, hidden_dim, n_layers)
-
-    # final rmsnorm
-    rms_final_weight::Vector{Float32} # (dim,)
-
-    # optional classifier weights
-    wcls::Matrix{Float32}  # (dim, vocab_size)
-end
-
-"""
-State of the transformer model. Modified during a forward pass.
-
-llama2.c correspondence: RunState (l. 50)
-"""
-mutable struct RunState
-    # current way of activations
-    x::Vector{Float32}  # activation at current time stamp (dim,)
-    xb::Vector{Float32}  # same, but inside a residual branch (dim,)
-    xb2::Vector{Float32}  # an additional buffer just for convenience (dim,)
-    hb::Vector{Float32}  # buffer for hidden dimension in the ffn (hidden_dim,)
-    hb2::Vector{Float32} # buffer for hidden dimension in the ffn (hidden_dim,)
-    q::Vector{Float32}  # query (n_heads * head_size,)
-    # k::Vector{Float32}   # key (dim,) - this is just a pointer to a portion of key_cache
-    # v::Vector{Float32}   # value (dim,) - this is just a pointer to a portion of value_cache
-    att::Array{Float32,2} # buffer for scores/attention values (n_heads, seq_len)
-    logits::Array{Float32} # output logits (vocab_size,)
-
-    # kv cache (n_kv_heads * head_size == kv_dim)
-    key_cache::Array{Float32,3}  # (n_kv_heads * head_size, seq_len, n_layers)
-    value_cache::Array{Float32,3}  # (n_kv_heads * head_size, seq_len, n_layers)
-end
-
-"""
-A transformer model, consisting of a config, weights, and a run state.
-
-llama2.c correspondence: Transformer (l. 67)
-"""
-struct Transformer
-    config::Config # hyperparameters of the architecture
-    weights::TransformerWeights # weights of the module
-    state::RunState # buffers for the wave of activations in the forward pass
-end
-
-"""
-    RunState(config::Config)
-
-Initializes the matrices in RunState based on the shapes provided in the Config.
-
-llama2.c correspondence: malloc_run_state (l. 77)
-"""
-function RunState(config::Config)
-    # calculation of kv_dim
-    kv_dim::Int32 = (config.dim * config.n_kv_heads) ÷ config.n_heads
-
-    # initialization of undefined arrays
-    return RunState(
-        Array{Float32}(undef, config.dim),
-        Array{Float32}(undef, config.dim),
-        Array{Float32}(undef, config.dim),
-        Array{Float32}(undef, config.hidden_dim),
-        Array{Float32}(undef, config.hidden_dim),
-        Array{Float32}(undef, config.dim),  # q
-        # Array{Float32}(undef, config.dim),  # k
-        # Array{Float32}(undef, config.dim),  # v
-        Array{Float32}(undef, config.n_heads, config.seq_len),  # rms_att_weight
-        Array{Float32}(undef, config.vocab_size),   # logits
-        Array{Float32}(undef, kv_dim, config.seq_len, config.n_layers),
-        Array{Float32}(undef, kv_dim, config.seq_len, config.n_layers),
-    )
-end
-
-"""
-    TransformerWeights(config::Config)
-
-Initialize transformer weight matrices based on Config.
+    function TransformerWeights(config::Config) where {T<:Real}
 
 llama2.c correspondence: memory_map_weights (l. 111)
 """
-function TransformerWeights(config::Config)
+struct TransformerWeights{T<:Real}
+    """Token embedding table: Mapping from token index to embedding vector. Shape: (dim, vocab_size)"""
+    token_embedding_table::Matrix{T}
+
+    # weights
+    """Weights for rmsnorm before the attention for each layer. Shape: (dim, n_layers)"""
+    rms_att_weight::Matrix{T}
+    """Weights for rmsnorm before the feed-forward net for each layer. Shape: (dim, n_layers)"""
+    rms_ffn_weight::Matrix{T}
+
+    # weights for matmuls (dim == n_heads * head_size)
+    """Query weights for each attention layer. Shape: (n_heads * head_size, dim, n_layers)"""
+    wq::Array{T,3}
+    """Key weights for each attention layer. Shape: (dim, kv_dim, n_layers)"""
+    wk::Array{T,3}  # llama2.c says (kv_dim, dim, n_layers), should be (dim, kv_dim, n_layers)
+    """Value weights for each attention layer. Shape: (dim, kv_dim, n_layers)"""
+    wv::Array{T,3}  # llama2.c says (kv_dim, dim, n_layers), should be (dim, kv_dim, n_layers)
+    """Output weights for each attention layer. Shape: (n_heads * head_size, dim, n_layers)"""
+    wo::Array{T,3}  # llama2.c says (dim, n_heads * head_size, n_layers), should be (n_heads * head_size, dim, n_layers)
+
+    # weights for ffn
+    """First weight matrix for each feed forward layer (in -> hidden). Shape: (dim, hidden_dim, n_layers)"""
+    w1::Array{T,3}
+    """Second weight matrix for each feed forward layer (hidden -> out). Shape: (hidden_dim, dim, n_layers)"""
+    w2::Array{T,3}
+    """Third weight matrix for each feed forward layer (in -> hidden). Shape: (dim, hidden_dim, n_layers)"""
+    w3::Array{T,3}
+
+    # final rmsnorm
+    """Weights for the final rmsnorm before the optional classifier head. Shape: (dim,)"""
+    rms_final_weight::Vector{T}
+
+    # optional classifier weights
+    """Weights for the optional classifier head. If there is no classifier (the usual case), this should equal token_embedding_table, translating embeddings back to logits. This is inspired by the original llama2.c implementation. Shape: (dim, vocab_size)"""
+    wcls::Matrix{Float32}  # (dim, vocab_size)
+end
+
+function TransformerWeights{T}(config::Config) where {T<:Real}
     (; dim, hidden_dim, n_heads, n_kv_heads, n_layers, vocab_size) = config
     kv_dim = (dim * n_kv_heads) ÷ n_heads
 
     # initialization of undefined arrays
-    return TransformerWeights(
-        Matrix{Float32}(undef, dim, vocab_size),
-        Matrix{Float32}(undef, dim, n_layers),
-        Matrix{Float32}(undef, dim, n_layers),
-        Array{Float32}(undef, dim, dim, n_layers),
-        Array{Float32}(undef, dim, kv_dim, n_layers),
-        Array{Float32}(undef, dim, kv_dim, n_layers),
-        Array{Float32}(undef, dim, dim, n_layers),
-        Array{Float32}(undef, dim, hidden_dim, n_layers),
-        Array{Float32}(undef, hidden_dim, dim, n_layers),
-        Array{Float32}(undef, dim, hidden_dim, n_layers),
-        Vector{Float32}(undef, config.dim),
-        Matrix{Float32}(undef, dim, vocab_size),
+    return TransformerWeights{T}(
+        Matrix{T}(undef, dim, vocab_size),
+        Matrix{T}(undef, dim, n_layers),
+        Matrix{T}(undef, dim, n_layers),
+        Array{T}(undef, dim, dim, n_layers),
+        Array{T}(undef, dim, kv_dim, n_layers),
+        Array{T}(undef, dim, kv_dim, n_layers),
+        Array{T}(undef, dim, dim, n_layers),
+        Array{T}(undef, dim, hidden_dim, n_layers),
+        Array{T}(undef, hidden_dim, dim, n_layers),
+        Array{T}(undef, dim, hidden_dim, n_layers),
+        Vector{T}(undef, config.dim),
+        Matrix{T}(undef, dim, vocab_size),
     )
 end
 
 """
-    forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
+$(TYPEDEF)
+
+State of the transformer model. The matrices are modified during a forward pass.
+It should never be necessary to manually modify this.
+While some of these arrays preserve actual neccessary state, some of them serve as preallocated buffers to speed up computation in the [`forward!`](@ref) method.
+
+## Fields
+$(TYPEDFIELDS)
+
+llama2.c correspondence: RunState (l. 50)
+
+## Allocate from config
+    function RunState(config::Config) where {T<:Real}
+Initializes the matrices in RunState based on the shapes provided in the Config.
+"""
+mutable struct RunState{T<:Real}
+    # current way of activations
+    """Activations at current time stamp. Shape: (dim,)"""
+    x::Vector{T}
+    """Activations at current time stamp inside a residual branch. Shape: (dim,)"""
+    xb::Vector{T}
+    """An additional activation buffer for convenience. Shape: (dim,)"""
+    xb2::Vector{T}
+    """Buffer for the hidden dimension in the feed-forward net. Shape: (hidden_dim,)"""
+    hb::Vector{T}
+    """Buffer for the hidden dimension in the feed-forward net. Shape: (hidden_dim,)"""
+    hb2::Vector{T}
+    """Stores the query vector in the attention part. Shape: (n_heads * head_size,)"""
+    q::Vector{T}
+    # k::Vector{T}   # key (dim,) - this is just a pointer to a portion of key_cache
+    # v::Vector{T}   # value (dim,) - this is just a pointer to a portion of value_cache
+    """Buffer for the attention scores. Shape: (n_heads, seq_len)"""
+    att::Matrix{T}
+    """The output logits. Shape: (vocab_size,)"""
+    logits::Vector{T}
+
+    # kv cache (n_kv_heads * head_size == kv_dim)
+    """Cache for all the keys in the attention part. Shape: (n_kv_heads * head_size, seq_len, n_layers)"""
+    key_cache::Array{T,3}
+    """Cache for all the values in the attention part. Shape: (n_kv_heads * head_size, seq_len, n_layers)"""
+    value_cache::Array{T,3}
+end
+
+function RunState{T}(config::Config) where {T<:Real}
+    # calculation of kv_dim
+    kv_dim::Int32 = (config.dim * config.n_kv_heads) ÷ config.n_heads
+
+    # initialization of undefined arrays
+    return RunState{T}(
+        Array{T}(undef, config.dim), # x
+        Array{T}(undef, config.dim), # xb
+        Array{T}(undef, config.dim), # xb2
+        Array{T}(undef, config.hidden_dim), # hb
+        Array{T}(undef, config.hidden_dim), # hb2
+        Array{T}(undef, config.dim),  # q
+        Array{T}(undef, config.n_heads, config.seq_len),  # att
+        Array{T}(undef, config.vocab_size),   # logits
+        Array{T}(undef, kv_dim, config.seq_len, config.n_layers), # key_cache
+        Array{T}(undef, kv_dim, config.seq_len, config.n_layers), # value_cache
+    )
+end
+
+"""
+$(TYPEDEF)
+
+A transformer model, consisting of a config, weights, and a run state.
+
+## Fields
+$(TYPEDFIELDS)
+
+llama2.c correspondence: Transformer (l. 67)
+"""
+struct Transformer{T<:Real}
+    """Hyperparameters of the architecture"""
+    config::Config
+    """Weights of the module"""
+    weights::TransformerWeights{T}
+    """Buffers for the wave of activations in the forward pass"""
+    state::RunState{T}
+end
+
+"""
+$(TYPEDSIGNATURES)
 
 A single complete transformer forward pass for input token `token` at position `pos`, returning the output logits.
 `pos` is one-based, i.e. 1 <= pos <= seq_len.
+`token` is also a one-based token index.
 This modifies the RunState of the transformer.
 
 llama2.c correspondence: forward (l. 231)
+
+## Example
+To run token 5 at position 1 through the transformer and get the predicted output logits:
+```julia-repl
+julia> forward!(transformer, 5, 1)
+32000-element Vector{Float32}:
+ -2.1009917
+  1.664739
+ -2.1005554
+ -2.1007848
+ -2.1005578
+ -2.1009412
+  ⋮
+ -2.1007295
+ -2.100759
+ -2.1007874
+ -2.1009996
+ -2.1009269
+ -2.1007652
+```
 """
-function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
+function forward!(transformer::Transformer{T}, token::Integer, pos::Integer) where {T<:Real}
     # a few convenience variables
     (; dim, n_heads, n_kv_heads, n_layers, seq_len) = transformer.config
     1 <= pos <= seq_len || throw(ArgumentError("1 <= pos <= seq_len is required"))

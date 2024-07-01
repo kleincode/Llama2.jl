@@ -1,5 +1,7 @@
 module Llama2
 
+using DocStringExtensions
+
 include("config.jl")
 include("transformer.jl")
 include("tokenizer.jl")

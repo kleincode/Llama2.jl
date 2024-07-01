@@ -13,7 +13,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 2
 
-            Config(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
+            Config{Int32}(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
         end
 
         @testset "Dimension is <= 0" begin
@@ -26,7 +26,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 2
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end
@@ -41,7 +41,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 2
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end
@@ -56,7 +56,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 2
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end
@@ -71,7 +71,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 2
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end
@@ -86,7 +86,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 2
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end
@@ -101,7 +101,7 @@ using Test
             vocab_size::Int32 = 0
             seq_len::Int32 = 2
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end
@@ -116,7 +116,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 0
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end
@@ -130,7 +130,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 2
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end
@@ -144,7 +144,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 2
 
-            @test_throws ArgumentError Config(
+            @test_throws ArgumentError Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
         end

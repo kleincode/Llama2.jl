@@ -5,14 +5,14 @@
 """
 
 """
-    rmsnorm(x::Vector{Float32}, weight::Vector{Float32})
+$(TYPEDSIGNATURES)
 
 Calculate the root mean square norm of a vector. 
 Reference in llama2.c lines 182-195
 """
-function rmsnorm(x::Vector{Float32}, weight::Vector{Float32})
+function rmsnorm(x::AbstractVector{T}, weight::AbstractVector{T}) where {T<:Real}
     if length(x) == 0
-        return Float32[]
+        return T[]
     end
     # Calculate the sum of the squares
     sum_squares = sum(x .^ 2) / length(x)
@@ -23,14 +23,14 @@ function rmsnorm(x::Vector{Float32}, weight::Vector{Float32})
 end
 
 """
-    softmax(x::Vector{Float32})
+$(TYPEDSIGNATURES)
 
 Calculate the softmax of a vector. 
 Reference in llama2.c lines 197-215
 """
-function softmax(x::Vector{Float32})::Vector{Float32}
+function softmax(x::AbstractVector{T}) where {T<:Real}
     if length(x) == 0
-        return Float32[]
+        return T[]
     end
 
     # exp and sum
@@ -42,16 +42,17 @@ function softmax(x::Vector{Float32})::Vector{Float32}
 end
 
 """
-    swiglu(x::Vector{Float32}, x2::Vector{Float32})
+$(TYPEDSIGNATURES)
+
 Activation function that combines GLU and Swish functions. 
 ```math
 swiglu(x, x_2) = x * x_2 * sigmoid(x)
 ```
 Reference in llama2.c lines 338-345
 """
-function swiglu(x::Vector{Float32}, x2::Vector{Float32})::Vector{Float32}
+function swiglu(x::AbstractVector{T}, x2::AbstractVector{T}) where {T<:Real}
     if length(x) == 0
-        return Float32[]
+        return T[]
     end
     sigmoid = 1 ./ (1 .+ exp.(-x))
     # SiLu function
