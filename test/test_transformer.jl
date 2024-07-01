@@ -117,9 +117,9 @@ using Test
                 end
                 decoded = decode(tokenizer, 1, token)
                 output *= decoded
-                print(decoded)
+                #print(decoded)
                 if token == 3 # EOS
-                    println()
+                    #println()
                     break
                 end
             end
