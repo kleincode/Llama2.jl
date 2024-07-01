@@ -1,6 +1,8 @@
 """
-    read_karpathy(file_path::String)
-Reads Config and TransformerWeights from a Karpathy binary file, as defined in llama2.c.
+$(TYPEDSIGNATURES)
+
+Reads a Karpathy file and returns the Config and Weights using the [`read_karpathy_config`](@ref) function
+and the [`read_karpathy_weights`](@ref) function.
 """
 function read_karpathy(file_path::String)
     open(file_path, "r") do file
@@ -11,12 +13,9 @@ function read_karpathy(file_path::String)
 end
 
 """
-    read_karpathy_weights(config::Config, file::IOStream)
-Reads TransformerWeights from a Karpathy binary file, as defined in llama2.c.
-The function assumes that the provided `IOStream` is already pointing to the beginning of the weights section.
+$(TYPEDSIGNATURES)
 
-The classifier weights are always assumed to be identical to the `token_embedding_table`
-because the config is guaranteed to have positive `vocab_size`, meaning that the weights are shared.
+Read the weights of a Karpathy file and return them using the [`TransformerWeights`](@ref) function.
 
 llama2.c correspondence: memory_map_weights (l. 111)
 """
@@ -43,18 +42,15 @@ function read_karpathy_weights(config::Config, file::IOStream)
 end
 
 """
-    read_karpathy_config(file::IOStream)
-Reads a Config instance from a Karpathy binary file, as defined in llama2.c
+$(TYPEDSIGNATURES)
 
-Note that this function advances the pointer of file by 7 Int32s.
-The config section of a Karpathy binary file is by definition the beginning of the file.
+Read the config of a Karpathy file and return that Configuration using the [`config`](@ref) function. 
 
 llama2.c correspondence: read_config (l. 147)
 """
-
 function read_karpathy_config(file::IOStream)
     # read config from file
-    config = Config(
+    return Config{Int32}(
         read(file, Int32),
         read(file, Int32),
         read(file, Int32),
@@ -63,5 +59,4 @@ function read_karpathy_config(file::IOStream)
         read(file, Int32),
         read(file, Int32),
     )
-    return config
 end

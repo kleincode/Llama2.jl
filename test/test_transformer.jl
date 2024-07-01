@@ -12,7 +12,7 @@ using Test
         vocab_size::Int32 = 30
         seq_len::Int32 = 2
 
-        config = Config(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
+        config = Config{Int32}(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
         weights = TransformerWeights{Float32}(config)
 
         head_size::Int32 = dim ÷ n_heads
@@ -44,7 +44,7 @@ using Test
         vocab_size::Int32 = 30
         seq_len::Int32 = 2
 
-        config = Config(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
+        config = Config{Int32}(dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len)
         state = RunState{Float32}(config)
 
         kv_dim::Int32 = (dim * n_kv_heads) ÷ n_heads
@@ -73,7 +73,7 @@ using Test
             vocab_size::Int32 = 30
             seq_len::Int32 = 10
 
-            config = Config(
+            config = Config{Int32}(
                 dim, hidden_dim, n_layers, n_heads, n_kv_heads, vocab_size, seq_len
             )
             state = RunState{Float32}(config)
