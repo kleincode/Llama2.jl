@@ -36,7 +36,7 @@ State of the transformer model. Modified during a forward pass.
 
 llama2.c correspondence: RunState (l. 50)
 """
-mutable struct RunState
+struct RunState
     # current way of activations
     x::Vector{Float32}  # activation at current time stamp (dim,)
     xb::Vector{Float32}  # same, but inside a residual branch (dim,)
@@ -130,7 +130,7 @@ This modifies the RunState of the transformer.
 
 llama2.c correspondence: forward (l. 231)
 """
-function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
+@views function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32}
     # a few convenience variables
     (; dim, n_heads, n_kv_heads, n_layers, seq_len) = transformer.config
     1 <= pos <= seq_len || throw(ArgumentError("1 <= pos <= seq_len is required"))
@@ -141,12 +141,12 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
     head_size = dim ÷ n_heads
 
     # copy the token embedding into x
-    s.x = w.token_embedding_table[:, token] # (dim,)
+    s.x .= w.token_embedding_table[:, token] # (dim,)
 
     # forward all the layers
     for l in 1:n_layers
         # attention rmsnorm
-        #rmsnorm!(s.xb, s.x, w.rms_att_weight[:, l]) # (n_heads * head_size,)
+        rmsnorm!(s.xb, s.x, w.rms_att_weight[:, l]) # (n_heads * head_size,)
 
         # qkv matmuls for this position
         mul!(s.q, w.wq[:, :, l]', s.xb) # (n_heads * head_size,) = (dim, n_heads * head_size) * (n_heads * head_size,)
@@ -180,21 +180,21 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
         for h in 1:n_heads
             # get the query vector for this head
             h_off = (h - 1) * head_size
-            q = @view s.q[(h_off + 1):(h_off + head_size)] # (head_size,)
+            q = s.q[(h_off + 1):(h_off + head_size)] # (head_size,)
             # iterate over all timesteps, including the current one
             kv_ind = ((h - 1) ÷ kv_mul) * head_size
             for t in 1:pos
-                k = @view s.key_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
+                k = s.key_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
                 score = (q ⋅ k) / sqrt(Float32(head_size)) # scalar
                 s.att[h, t] = score
             end
             # softmax the scores to get attention weights, from 1..pos inclusively
-            softmax!(@view s.att[h, 1:pos]) # (pos,)
+            softmax!(s.att[h, 1:pos]) # (pos,)
             # weighted sum of the values, store back into xb
             s.xb[(h_off + 1):(h_off + head_size)] .= 0 # (head_size,)
             for t in 1:pos
                 # get the value vector for this head and at this timestep
-                v = @view s.value_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
+                v = s.value_cache[(kv_ind + 1):(kv_ind + head_size), t, l] # (head_size,)
                 # accumulate the weighted value into xb
                 s.xb[(h_off + 1):(h_off + head_size)] += s.att[h, t] * v # (head_size,) = scalar * (head_size,)
             end
@@ -204,7 +204,7 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
         mul!(s.xb2, w.wo[:, :, l]', s.xb) # (dim,) = (dim, n_heads * head_size) * (n_heads * head_size,)
 
         # residual connection back into x
-        s.x += s.xb2 # (dim,) += (dim,)
+        s.x .+= s.xb2 # (dim,) += (dim,)
 
         # ffn rmsnorm
         rmsnorm!(s.xb, s.x, w.rms_ffn_weight[:, l]) # (dim,)
@@ -219,7 +219,7 @@ function forward!(transformer::Transformer, token::Int, pos::Int)::Array{Float32
         # final matmul to get the output of the ffn
         mul!(s.xb, w.w2[:, :, l]', s.hb) # (dim,) = (dim, hidden_dim) * (hidden_dim,)
         # residual connection
-        s.x += s.xb # (dim,)
+        s.x .+= s.xb # (dim,)
     end
 
     # final rmsnorm

@@ -10,13 +10,14 @@
 Calculate the root mean square norm of a vector. 
 Reference in llama2.c lines 182-195
 """
-function rmsnorm!(o::AbstractArray{T}, x::AbstractArray{T}, weight::AbstractArray{T}) where T
+function rmsnorm!(
+    o::AbstractArray{T}, x::AbstractArray{T}, weight::AbstractArray{T}
+) where {T<:Real}
     if length(x) == 0
-        return
+        return nothing
     end
     # Calculate the sum of the squares
-    sum_squares = sum(x .^ 2) / length(x)
-    sum_squares += 1.0f-5
+    sum_squares = sum(x .^ 2) / length(x) + 1.0f-5
     sum_squares = 1.0f0 / sqrt(sum_squares)
 
     o .= weight .* (sum_squares .* x)
@@ -29,17 +30,17 @@ end
 Calculate the softmax of a vector. 
 Reference in llama2.c lines 197-215
 """
-function softmax!(x::AbstractArray{T}) where T
+function softmax!(x::AbstractArray{T}) where {T<:Real}
     if length(x) == 0
-        return
+        return nothing
     end
 
     # exp and sum
-    sum_exp = exp.(x .- maximum(x))
+    x .= exp.(x .- maximum(x))
 
     # normalize and update x in place
-    x .= sum_exp ./ sum(sum_exp)
-    
+    x ./= sum(x)
+
     return nothing
 end
 
@@ -51,13 +52,10 @@ swiglu(x, x_2) = x * x_2 * sigmoid(x)
 ```
 Reference in llama2.c lines 338-345
 """
-function swiglu!(x::AbstractArray{T}, x2::AbstractArray{T}) where T
+function swiglu!(x::AbstractArray{T}, x2::AbstractArray{T}) where {T<:Real}
     if length(x) == 0
-        return
+        return nothing
     end
-    sigmoid = 1 ./ (1 .+ exp.(-x))
-    # SiLu function
-    silu = x .* sigmoid
-    x .= silu .* x2
+    x .*= x2 ./ (1 .+ exp.(-x))
     return nothing
 end
