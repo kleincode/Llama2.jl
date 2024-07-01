@@ -57,16 +57,16 @@ function (sampler::Sampler)(logits::Vector{Float32})
         # apply the temperature to the logits
         logits = logits ./ sampler.temperature
         # apply softmax to the logits to get the probabilities for next token
-        probs = softmax(logits)
+        softmax!(logits)
         # flip a (float) coin (this is our source of entropy for sampling)
         coin = rand(sampler.rng_state, Float32)
         # we sample from this distribution to get the next token
         if sampler.topp == 0.0f0 || sampler.topp == 1.0f0
             # simply sample from the predicted probability distribution
-            next = sample_mult(probs, coin)
+            next = sample_mult(logits, coin)
         else
             # top-p (nucleus) sampling, clamping the least likely tokens to zero
-            next = sample_topp(probs, sampler.topp, coin)
+            next = sample_topp(logits, sampler.topp, coin)
         end
     end
     return next
@@ -109,7 +109,7 @@ tokens that exceed probability topp. This way we never sample tokens that
 have very low probabilities and are less likely to go "off the rails".
 Coin is a random number in [0, 1)
 """
-function sample_topp(probabilities::Vector{Float32}, topp::Float32, coin::Float32)
+function sample_topp(probabilities::AbstractArray{T}, topp::Float32, coin::Float32) where T
     sum(probabilities) ≈ 1.0f0 || throw(ArgumentError("Probabilities must sum to 1"))
     0.0f0 <= topp <= 1.0f0 || throw(ArgumentError("Top-p must be in [0, 1]"))
     0.0f0 <= coin <= 1.0f0 || throw(ArgumentError("Coin must be in [0, 1]"))
