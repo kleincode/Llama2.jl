@@ -1,22 +1,41 @@
 """
+$(TYPEDEF)
+
 Used for mapping from strings to token arrays (Int vectors) and back.
+
+## Fields
+$(TYPEDFIELDS)
 
 llama2.c correspondence: Tokenizer (l. 372)
 - index_to_token = vocab
 - token_to_index = sorted_vocab
 - removed max_token_length (not required in Julia)
 - removed byte_pieces (not required in Julia)
+
+# Load from Karpathy bin file
+    Tokenizer(tokenizer_path::String, vocab_size::Int)
+
+Constructs a Tokenizer by loading the vocabulary from a file in the llama2.c format.
+The vocabulary size must be known from the config.
+
+## Example
+```julia-repl
+julia> Tokenizer("bin/tokenizer/tokenizer.bin", 32000)
+Tokenizer(["<unk>", "\n<s>\n", "\n</s>\n", "<0x00>", "<0x01>", "<0x02>", "<0x03>", "<0x04>", "<0x05>", "<0x06>"  …  "ὀ", "げ", "べ", "边", "还", "黃", "왕", "收", "弘", "给"], Dict("âr" => 28727, " properly" => 6285, "chem" => 14970, " patients" => 22070, " Plan" => 8403, "<0x2A>" => 46, "рос" => 10375, "null" => 4305, "rę" => 15387, "ört" => 21069…), Float32[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  -31731.0, -31732.0, -31733.0, -31734.0, -31735.0, -31736.0, -31737.0, -31738.0, -31739.0, -31740.0])
+```
+
+llama2.c correspondence: build_tokenizer (l. 385)
 """
-struct Tokenizer
+struct Tokenizer{T<:Real}
     "Maps a token index to its string representation, for decoding"
     index_to_token::Vector{String}
     "Maps a token string to its token index, for encoding"
     token_to_index::Dict{String,Int} # for encoding
     "Scores of individual tokens for encoding"
-    vocab_scores::Vector{Float32} # for encoding
+    vocab_scores::Vector{T} # for encoding
 
     "Constructs a Tokenizer from a list of tokens and scores."
-    function Tokenizer(tokens::Vector{String}, scores::Vector{Float32})
+    function Tokenizer(tokens::Vector{String}, scores::Vector{T}) where {T<:Real}
         # Input checks
         n = length(tokens)
         n > 0 || throw(ArgumentError("Tokens must not be empty"))
@@ -33,19 +52,11 @@ struct Tokenizer
             end
             token_to_index[token] = index
         end
-        return new(tokens, token_to_index, scores)
+        return new{T}(tokens, token_to_index, scores)
     end
 end
 
-"""
-    Tokenizer(tokenizer_path::String, vocab_size::Int)
-
-Constructs a Tokenizer by loading the vocabulary from a file in the llama2.c format.
-The vocabulary size must be known from the config.
-
-llama2.c correspondence: build_tokenizer (l. 385)
-"""
-function Tokenizer(tokenizer_path::String, vocab_size::Int)
+function Tokenizer(tokenizer_path::String, vocab_size::Integer)
     tokens = Vector{String}(undef, vocab_size)
     vocab_scores = Vector{Float32}(undef, vocab_size)
     # Read the file
@@ -65,11 +76,25 @@ const BOS_TOKEN::Int32 = 2
 const EOS_TOKEN::Int32 = 3
 
 """
-Encode a string text using the tokenizer. 
-Optional EOS token can be added.
-Encoded text can be decoded with the decode function.
+$(TYPEDSIGNATURES)
 
-Token indices are 1-based (different to the 0-based system in the llama2.c).
+Encode a string text using a [`Tokenizer`](@ref). 
+An optional EOS token can be added.
+Encoded text can be decoded with the [`decode`](@ref) function.
+
+Works by encoding each code unit as a single token, then iteratively merging them together according to the [`Tokenizer`](@ref)'s `vocab_scores`.
+
+Note that token indices are 1-based (different to the 0-based system in the llama2.c).
+
+## Example
+```julia-repl
+julia> encode(tokenizer, "Hello world!")
+4-element Vector{Int64}:
+     2
+ 15044
+  3187
+ 29992
+```
 
 llama2.c correspondence: encode (l. 452)
 """
@@ -97,7 +122,7 @@ function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
 
     # merge the best consecutive pair each iteration
     while true
-        best_score::Float32 = -1.0f10
+        best_score::Real = -1.0f10
         best_id::Int32 = -1
         best_idx::Int32 = -1
 
@@ -140,11 +165,27 @@ function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
 end
 
 """
-    decode(tokenizer::Tokenizer, prev_token::Int32, token::Int32)
+$(TYPEDSIGNATURES)
 
 Decodes a token index to a string.
-If the previous token is BOS, leading spaces are removed.
-Token indices are 1-based (different to the 0-based system in the llama2.c).
+If the previous token is BOS (=2) and the token value starts with a leading space, the leading space is removed.
+Token indices are 1-based (different to the 0-based system in llama2.c).
+
+## Example
+```julia-repl
+julia> [decode(tokenizer, 1, t) for t in [2, 15044, 3187, 29992]]
+4-element Vector{String}:
+ "\n<s>\n"
+ " Hello"
+ " world"
+ "!"
+
+julia> decode(tokenizer, 1, 15044)
+" Hello"
+
+julia> decode(tokenizer, 2, 15044) # BOS strips leading space
+"Hello"
+```
 
 llama2.c correspondence: decode (l. 418)
 """

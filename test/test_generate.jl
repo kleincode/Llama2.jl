@@ -6,11 +6,11 @@ using Test
 
     # Initialize model and tokenizer
     config, weights = read_karpathy(get_stories15M())
-    state = RunState(config)
-    transformer = Transformer(config, weights, state)
+    state = RunState{Float32}(config)
+    transformer = Transformer{Float32}(config, weights, state)
     tokenizer = Tokenizer("../bin/tokenizer/tokenizer.bin", 32000)
-    sampler_1 = Sampler(0.5, 1.0, 420)
-    sampler_2 = Sampler(1.0, 0.2, 187)
+    sampler_1 = Sampler{Float32}(0.5f0, 1.0f0, 420)
+    sampler_2 = Sampler{Float32}(1.0f0, 0.2f0, 187)
 
     @testset "Empty prompt" begin
         output = generate(transformer, tokenizer, sampler_2, "", false, false, false)
@@ -19,9 +19,7 @@ using Test
     end
 
     @testset "Single word prompt" begin
-        output = generate(
-            transformer, tokenizer, sampler_1, "Hello", false, false, false
-        )
+        output = generate(transformer, tokenizer, sampler_1, "Hello", false, false, false)
         @test typeof(output) == String
         @test !isempty(output)
     end
@@ -38,32 +36,21 @@ using Test
     @testset "Special characters prompt" begin
         special_char_prompt = "#%^&*()_+123-=[]{}|?;':,./<>"
         output = generate(
-            transformer,
-            tokenizer,
-            sampler_1,
-            special_char_prompt,
-            false,
-            false,
-            false
+            transformer, tokenizer, sampler_1, special_char_prompt, false, false, false
         )
         @test typeof(output) == String
         @test !isempty(output)
     end
 
     @testset "display output & verbose" begin
-        display_prompt = "Once upon a time, there was a little language model named Llama." 
-        output = generate(
-            transformer,
-            tokenizer,
-            sampler_2,
-            display_prompt
-        )
+        display_prompt = "Once upon a time, there was a little language model named Llama."
+        output = generate(transformer, tokenizer, sampler_2, display_prompt)
         @test typeof(output) == String
         @test !isempty(output)
     end
 
     @testset "extend" begin
-        sampler_1 = Sampler(0.5, 1.0, 420)
+        sampler_1 = Sampler{Float32}(0.5f0, 1.0f0, 420)
         output = generate(
             transformer,
             tokenizer,
@@ -71,11 +58,11 @@ using Test
             "The quick brown fox jumps over",
             false,
             false,
-            false
+            false,
         )
         @test endswith(output, "They play")
 
-        sampler_1 = Sampler(0.5, 1.0, 420)
+        sampler_1 = Sampler{Float32}(0.5f0, 1.0f0, 420)
         output_extend = generate(
             transformer,
             tokenizer,
@@ -84,7 +71,7 @@ using Test
             false,
             false,
             false,
-            1000
+            1000,
         )
         @test endswith(output_extend, "They play together and have fun.")
 
@@ -98,13 +85,7 @@ using Test
             From that day on, the village was at peace and the memory of the dragon faded into legend. But"
 
             output = generate(
-                transformer,
-                tokenizer,
-                sampler_2,
-                very_long_prompt,
-                false,
-                false,
-                false,
+                transformer, tokenizer, sampler_2, very_long_prompt, false, false, false
             )
             @test typeof(output) == String
             @test !isempty(output)
@@ -117,7 +98,7 @@ using Test
                 false,
                 false,
                 false,
-                1000
+                1000,
             )
             @test typeof(output_extend) == String
             @test !isempty(output_extend)
