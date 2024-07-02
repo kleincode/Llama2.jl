@@ -13,7 +13,7 @@ end
 """
 $(TYPEDEF)
     Sampler()
-    function Sampler(temperature::T, topp::T, rng_seed::Integer) where {T<:Real}
+    function Sampler{T}(temperature::T, topp::T, rng_seed::Integer) where {T<:Real}
 
 Used to return a sampled token (index) based on given logits.
 Depending on the parameters, the sampler supports greedy argmax, multinomial, or top-p sampling.
@@ -26,7 +26,7 @@ llama2.c correspondence: Sampler (l. 577 - 715)
 
 ## Example
 ```julia-repl
-julia> sampler_mult = Sampler(0.5, 0.0, 1)
+julia> sampler_mult = Sampler{Float64}(0.5, 0.0, 1)
 Sampler{Float64}(0.5, 0.0, Random.MersenneTwister(1))
 
 julia> [sampler_mult([-0.5, 0.5, 0.2]) for i in 1:10]
@@ -42,7 +42,7 @@ julia> [sampler_mult([-0.5, 0.5, 0.2]) for i in 1:10]
  2
  3
 
-julia> sampler_det = Sampler(0.0, 0.0, 1)
+julia> sampler_det = Sampler{Float64}(0.0, 0.0, 1)
 Sampler{Float64}(0.0, 0.0, Random.MersenneTwister(42))
 
 julia> [sampler_det([-0.5, 0.5, 0.2]) for i in 1:10]
@@ -58,7 +58,7 @@ julia> [sampler_det([-0.5, 0.5, 0.2]) for i in 1:10]
  2
  2
 
-julia> sampler_topp = Sampler(1.0, 0.5, 1)
+julia> sampler_topp = Sampler{Float64}(1.0, 0.5, 1)
 Sampler{Float64}(1.0, 0.5, Random.MersenneTwister(1))
 
 julia> [sampler_topp([-0.5, 0.5, 0.2]) for i in 1:10]
@@ -85,14 +85,14 @@ struct Sampler{T<:Real}
     topp::T
     rng_state::MersenneTwister
 
-    function Sampler(temperature::T, topp::T, rng_seed::Integer) where {T<:Real}
+    function Sampler{T}(temperature::T, topp::T, rng_seed::Integer) where {T<:Real}
         0.0 <= temperature || throw(ArgumentError("Temperature must be non-negative"))
         0.0 <= topp <= 1.0 || throw(ArgumentError("Top-p must be in [0, 1]"))
         return new{T}(temperature, topp, MersenneTwister(rng_seed))
     end
 end
 
-Sampler() = Sampler(1.0, 0.0, 420)
+Sampler() = Sampler{Float32}(1.0f0, 0.0f0, 420)
 
 """
 $(TYPEDSIGNATURES)

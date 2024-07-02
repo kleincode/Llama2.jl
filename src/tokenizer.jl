@@ -56,7 +56,7 @@ struct Tokenizer{T<:Real}
     end
 end
 
-function Tokenizer(tokenizer_path::String, vocab_size::Int)
+function Tokenizer(tokenizer_path::String, vocab_size::Integer)
     tokens = Vector{String}(undef, vocab_size)
     vocab_scores = Vector{Float32}(undef, vocab_size)
     # Read the file

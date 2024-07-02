@@ -12,15 +12,15 @@ There are several optional boolean flags:
 llama2.c correspondence: generation loop (l. 729-783)
 """
 function generate(
-    model::Transformer,
+    model::Transformer{T},
     tokenizer::Tokenizer,
-    sampler::Sampler,
+    sampler::Sampler{T},
     prompt::String,
     verbose::Bool=true,
     display_output::Bool=true,
     display_prompt::Bool=true,
     max_steps::Int=Int64(model.config.seq_len),
-)
+) where {T<:Real}
     steps = model.config.seq_len
 
     prompt = replace(prompt, r"\s+" => " ")

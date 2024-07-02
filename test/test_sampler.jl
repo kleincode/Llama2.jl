@@ -7,7 +7,7 @@ using Test
         @test sampler_default.temperature == 1.0
         @test sampler_default.topp == 0.0
 
-        sampler_custom = Sampler(0.5, 0.7, 123)
+        sampler_custom = Sampler{Float64}(0.5, 0.7, 123)
         @test sampler_custom.temperature == 0.5
         @test sampler_custom.topp == 0.7
     end
@@ -75,9 +75,9 @@ using Test
     end
     @testset "Calling sampler object" begin
         # Create sampler objects
-        sampler1 = Sampler(0.0, 0.5, 187) # argmax
-        sampler2 = Sampler(0.5, 1.0, 420) # multinomial
-        sampler3 = Sampler(1.0, 0.7, 69) # topp
+        sampler1 = Sampler{Float64}(0.0, 0.5, 187) # argmax
+        sampler2 = Sampler{Float64}(0.5, 1.0, 420) # multinomial
+        sampler3 = Sampler{Float64}(1.0, 0.7, 69) # topp
 
         # Define logits
         logits1 = [0.278, 0.574, -0.093, 0.827, -0.641, 0.389, 0.152, 0.965, -0.738, 0.440]
