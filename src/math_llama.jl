@@ -5,7 +5,7 @@
 """
 
 """
-    rmsnorm(o::Vector{Float32}, x::Vector{Float32}, weight::Vector{Float32})
+$(TYPEDSIGNATURES)
 
 Calculate the root mean square norm of a vector. 
 Reference in llama2.c lines 182-195
@@ -25,7 +25,7 @@ function rmsnorm!(
 end
 
 """
-    softmax(x::AbstractArray{T})
+$(TYPEDSIGNATURES)
 
 Calculate the softmax of a vector. 
 Reference in llama2.c lines 197-215
@@ -45,7 +45,8 @@ function softmax!(x::AbstractArray{T}) where {T<:Real}
 end
 
 """
-    swiglu(x::Vector{Float32}, x2::Vector{Float32})
+$(TYPEDSIGNATURES)
+
 Activation function that combines GLU and Swish functions. 
 ```math
 swiglu(x, x_2) = x * x_2 * sigmoid(x)

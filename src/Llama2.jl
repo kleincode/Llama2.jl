@@ -1,11 +1,14 @@
 module Llama2
 
+using DocStringExtensions
+
 include("config.jl")
 include("transformer.jl")
 include("tokenizer.jl")
 include("sampler.jl")
 include("math_llama.jl")
 include("read_karpathy.jl")
+include("generate.jl")
 
 export Sampler, sample_topp, sample_argmax, sample_mult, softmax
 export Tokenizer, encode, decode
@@ -17,7 +20,7 @@ export Transformer,
     read_karpathy_config,
     read_karpathy,
     forward!
-export rmsnorm!, softmax!, swiglu!,
-    rmsnorm_TEST
+export rmsnorm!, softmax!, swiglu!
+export generate
 
 end
