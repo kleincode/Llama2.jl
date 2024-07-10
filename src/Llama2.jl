@@ -9,6 +9,7 @@ include("sampler.jl")
 include("math_llama.jl")
 include("read_karpathy.jl")
 include("generate.jl")
+include("chat_loop.jl")
 
 export Sampler, sample_topp, sample_argmax, sample_mult, softmax
 export Tokenizer, encode, decode
@@ -20,6 +21,7 @@ export Transformer,
     read_karpathy_config,
     read_karpathy,
     forward!
+export chat
 export rmsnorm, softmax, swiglu
 export generate
 
