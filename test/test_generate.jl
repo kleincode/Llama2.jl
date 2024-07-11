@@ -13,13 +13,13 @@ using Test
     sampler_2 = Sampler{Float32}(1.0f0, 0.2f0, 187)
 
     @testset "Empty prompt" begin
-        output = generate(transformer, tokenizer, sampler_2, "", false, false, false)
+        output = generate(transformer, tokenizer, sampler_2, "", verbose=false, display_output=false, display_prompt=false)
         @test typeof(output) == String
         @test !isempty(output)
     end
 
     @testset "Single word prompt" begin
-        output = generate(transformer, tokenizer, sampler_1, "Hello", false, false, false)
+        output = generate(transformer, tokenizer, sampler_1, "Hello", verbose=false, display_output=false, display_prompt=false)
         @test typeof(output) == String
         @test !isempty(output)
     end
@@ -27,7 +27,7 @@ using Test
     @testset "Long prompt" begin
         long_prompt = "Once upon a time, in a faraway land, there was a small village surrounded by lush green forests and flowing rivers. The villagers were known for their"
         output = generate(
-            transformer, tokenizer, sampler_1, long_prompt, false, false, false
+            transformer, tokenizer, sampler_1, long_prompt, verbose=false, display_output=false, display_prompt=false
         )
         @test typeof(output) == String
         @test !isempty(output)
@@ -36,7 +36,7 @@ using Test
     @testset "Special characters prompt" begin
         special_char_prompt = "#%^&*()_+123-=[]{}|?;':,./<>"
         output = generate(
-            transformer, tokenizer, sampler_1, special_char_prompt, false, false, false
+            transformer, tokenizer, sampler_1, special_char_prompt, verbose=false, display_output=false, display_prompt=false
         )
         @test typeof(output) == String
         @test !isempty(output)
@@ -49,6 +49,20 @@ using Test
         @test !isempty(output)
     end
 
+    @testset "cutoff at max_steps" begin
+        output = generate(
+            transformer,
+            tokenizer,
+            sampler_1,
+            "",
+            verbose=false, 
+            display_output=false, 
+            display_prompt=false,
+            max_steps=10,
+        )
+        @test output == "Once upon a time, there was a little girl named"
+    end
+
     @testset "extend" begin
         sampler_1 = Sampler{Float32}(0.5f0, 1.0f0, 420)
         output = generate(
@@ -56,9 +70,9 @@ using Test
             tokenizer,
             sampler_1,
             "The quick brown fox jumps over",
-            false,
-            false,
-            false,
+            verbose=false, 
+            display_output=false, 
+            display_prompt=false
         )
         @test endswith(output, "They play")
 
@@ -68,10 +82,10 @@ using Test
             tokenizer,
             sampler_1,
             "The quick brown fox jumps over",
-            false,
-            false,
-            false,
-            1000,
+            verbose=false, 
+            display_output=false, 
+            display_prompt=false,
+            max_steps=1000,
         )
         @test endswith(output_extend, "They play together and have fun.")
 
@@ -85,7 +99,7 @@ using Test
             From that day on, the village was at peace and the memory of the dragon faded into legend. But"
 
             output = generate(
-                transformer, tokenizer, sampler_2, very_long_prompt, false, false, false
+                transformer, tokenizer, sampler_2, very_long_prompt, verbose=false, display_output=false, display_prompt=false
             )
             @test typeof(output) == String
             @test !isempty(output)
@@ -95,10 +109,10 @@ using Test
                 tokenizer,
                 sampler_2,
                 very_long_prompt,
-                false,
-                false,
-                false,
-                1000,
+                verbose=false, 
+                display_output=false, 
+                display_prompt=false,
+                max_steps=1000,
             )
             @test typeof(output_extend) == String
             @test !isempty(output_extend)

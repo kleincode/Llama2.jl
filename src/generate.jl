@@ -15,14 +15,12 @@ function generate(
     model::Transformer{T},
     tokenizer::Tokenizer,
     sampler::Sampler{T},
-    prompt::String,
+    prompt::String;
     verbose::Bool=true,
     display_output::Bool=true,
     display_prompt::Bool=true,
-    max_steps::Int=Int64(model.config.seq_len),
+    max_steps::Int=-1,
 ) where {T<:Real}
-    steps = model.config.seq_len
-
     prompt = replace(prompt, r"\s+" => " ")
     prompt = String(strip(prompt))
 
@@ -31,6 +29,10 @@ function generate(
     !isempty(prompt_tokens) ||
         throw(error("something is wrong, expected at least 1 prompt token"))
 
+    len_prompt = length(prompt_tokens)
+    max_steps < 0 && (max_steps = model.config.seq_len - len_prompt) # the max number of tokens to generate (excluding prompt)
+    steps = min(max_steps + len_prompt, model.config.seq_len) # max number of tokens to generate in this call
+
     token = prompt_tokens[1]
     output = ""
     start = nothing
@@ -38,7 +40,7 @@ function generate(
 
     while pos <= steps
         logits = forward!(model, token, pos)
-        if pos < length(prompt_tokens)
+        if pos < len_prompt
             token = prompt_tokens[pos + 1]
         else
             token = sampler(logits)
@@ -57,7 +59,7 @@ function generate(
         pos += 1
 
         if !display_prompt
-            if pos <= length(prompt_tokens)
+            if pos <= len_prompt
                 continue
             end
         end
@@ -72,13 +74,20 @@ function generate(
         end
     end
 
-    steps_left = max_steps - pos
+    steps_left = max_steps + min(len_prompt, steps) - pos
 
-    # Continue generation if extend flag is set and sequence was cut off
+    # Continue generation if sequence was cut off and there are steps left
     if pos > steps && steps_left > 0
         prompt_new = output[div(length(output), 2):end]
         recursive_output = generate(
-            model, tokenizer, sampler, prompt_new, false, display_output, false, steps_left
+            model,
+            tokenizer,
+            sampler,
+            prompt_new;
+            verbose=false,
+            display_output=display_output,
+            display_prompt=false,
+            max_steps=steps_left,
         )
         recursive_output = replace(recursive_output, prompt_new => "")
         output *= recursive_output
