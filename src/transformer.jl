@@ -188,7 +188,9 @@ julia> forward!(transformer, 5, 1)
  -2.1007652
 ```
 """
-function forward!(transformer::Transformer{T}, token::Integer, pos::Integer) where {T<:Real}
+@views function forward!(
+    transformer::Transformer{T}, token::Integer, pos::Integer
+) where {T<:Real}
     # a few convenience variables
     (; dim, n_heads, n_kv_heads, n_layers, seq_len) = transformer.config
     1 <= pos <= seq_len || throw(ArgumentError("1 <= pos <= seq_len is required"))
@@ -199,17 +201,17 @@ function forward!(transformer::Transformer{T}, token::Integer, pos::Integer) whe
     head_size = dim ÷ n_heads
 
     # copy the token embedding into x
-    s.x = w.token_embedding_table[:, token] # (dim,)
+    s.x .= w.token_embedding_table[:, token] # (dim,)
 
     # forward all the layers
     for l in 1:n_layers
         # attention rmsnorm
-        s.xb = rmsnorm(s.x, w.rms_att_weight[:, l]) # (n_heads * head_size,)
+        rmsnorm!(s.xb, s.x, w.rms_att_weight[:, l]) # (n_heads * head_size,)
 
         # qkv matmuls for this position
-        s.q = w.wq[:, :, l]' * s.xb # (n_heads * head_size,) = (dim, n_heads * head_size) * (n_heads * head_size,)
-        s.key_cache[:, pos, l] = w.wk[:, :, l]' * s.xb # (kv_dim,) = (kv_dim, dim) * (n_heads * head_size,)
-        s.value_cache[:, pos, l] = w.wv[:, :, l]' * s.xb # (kv_dim,) = (kv_dim, dim) * (n_heads * head_size,)
+        mul!(s.q, w.wq[:, :, l]', s.xb) # (n_heads * head_size,) = (dim, n_heads * head_size) * (n_heads * head_size,)
+        mul!(s.key_cache[:, pos, l], w.wk[:, :, l]', s.xb) # (kv_dim,) = (kv_dim, dim) * (n_heads * head_size,)
+        mul!(s.value_cache[:, pos, l], w.wv[:, :, l]', s.xb) # (kv_dim,) = (kv_dim, dim) * (n_heads * head_size,)
 
         # RoPE relative positional encoding: complex-valued rotate q and k in each head
         for i in 1:2:dim
@@ -247,7 +249,7 @@ function forward!(transformer::Transformer{T}, token::Integer, pos::Integer) whe
                 s.att[h, t] = score
             end
             # softmax the scores to get attention weights, from 1..pos inclusively
-            s.att[h, 1:pos] = softmax(s.att[h, 1:pos]) # (pos,)
+            softmax!(s.att[h, 1:pos]) # (pos,)
             # weighted sum of the values, store back into xb
             s.xb[(h_off + 1):(h_off + head_size)] .= 0 # (head_size,)
             for t in 1:pos
@@ -259,30 +261,30 @@ function forward!(transformer::Transformer{T}, token::Integer, pos::Integer) whe
         end
 
         # final matmul to get the output of the attention
-        s.xb2 = w.wo[:, :, l]' * s.xb # (dim,) = (dim, n_heads * head_size) * (n_heads * head_size,)
+        mul!(s.xb2, w.wo[:, :, l]', s.xb) # (dim,) = (dim, n_heads * head_size) * (n_heads * head_size,)
 
         # residual connection back into x
-        s.x += s.xb2 # (dim,) += (dim,)
+        s.x .+= s.xb2 # (dim,) += (dim,)
 
         # ffn rmsnorm
-        s.xb = rmsnorm(s.x, w.rms_ffn_weight[:, l]) # (dim,)
+        rmsnorm!(s.xb, s.x, w.rms_ffn_weight[:, l]) # (dim,)
 
         # Now for FFN in PyTorch we have: self.w2(F.silu(self.w1(x)) * self.w3(x))
         # first calculate self.w1(x) and self.w3(x)
-        s.hb = w.w1[:, :, l]' * s.xb # (hidden_dim,) = (hidden_dim, dim) * (dim,)
-        s.hb2 = w.w3[:, :, l]' * s.xb # (hidden_dim,) = (hidden_dim, dim) * (dim,)
+        mul!(s.hb, w.w1[:, :, l]', s.xb) # (hidden_dim,) = (hidden_dim, dim) * (dim,)
+        mul!(s.hb2, w.w3[:, :, l]', s.xb) # (hidden_dim,) = (hidden_dim, dim) * (dim,)
 
         # SwiGLU non-linearity
-        s.hb = swiglu(s.hb, s.hb2) # (hidden_dim,)
+        swiglu!(s.hb, s.hb2) # (hidden_dim,)
         # final matmul to get the output of the ffn
-        s.xb = w.w2[:, :, l]' * s.hb # (dim,) = (dim, hidden_dim) * (hidden_dim,)
+        mul!(s.xb, w.w2[:, :, l]', s.hb) # (dim,) = (dim, hidden_dim) * (hidden_dim,)
         # residual connection
-        s.x += s.xb # (dim,)
+        s.x .+= s.xb # (dim,)
     end
 
     # final rmsnorm
-    s.x = rmsnorm(s.x, w.rms_final_weight)
+    rmsnorm!(s.x, s.x, w.rms_final_weight)
     # classifier into logits
-    s.logits = w.wcls' * s.x # (vocab_size,) = (vocab_size, dim) * (dim,)
+    mul!(s.logits, w.wcls', s.x) # (vocab_size,) = (vocab_size, dim) * (dim,)
     return s.logits
 end

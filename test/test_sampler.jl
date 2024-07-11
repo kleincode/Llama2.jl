@@ -14,9 +14,9 @@ using Test
 
     @testset "Softmax Tests" begin
         logits = [-1.2, 1.2, 4.8, 2.4]
-        probs = softmax(logits)
-        @test sum(probs) ≈ 1.0
-        @test probs ≈ [0.00221214, 0.02438485, 0.89244245, 0.08096055]
+        softmax!(logits)
+        @test sum(logits) ≈ 1.0
+        @test logits ≈ [0.00221214, 0.02438485, 0.89244245, 0.08096055]
     end
 
     @testset "Sampling Tests" begin
