@@ -13,13 +13,29 @@ using Test
     sampler_2 = Sampler{Float32}(1.0f0, 0.2f0, 187)
 
     @testset "Empty prompt" begin
-        output = generate(transformer, tokenizer, sampler_2, "", verbose=false, display_output=false, display_prompt=false)
+        output = generate(
+            transformer,
+            tokenizer,
+            sampler_2,
+            "";
+            verbose=false,
+            display_output=false,
+            display_prompt=false,
+        )
         @test typeof(output) == String
         @test !isempty(output)
     end
 
     @testset "Single word prompt" begin
-        output = generate(transformer, tokenizer, sampler_1, "Hello", verbose=false, display_output=false, display_prompt=false)
+        output = generate(
+            transformer,
+            tokenizer,
+            sampler_1,
+            "Hello";
+            verbose=false,
+            display_output=false,
+            display_prompt=false,
+        )
         @test typeof(output) == String
         @test !isempty(output)
     end
@@ -27,7 +43,13 @@ using Test
     @testset "Long prompt" begin
         long_prompt = "Once upon a time, in a faraway land, there was a small village surrounded by lush green forests and flowing rivers. The villagers were known for their"
         output = generate(
-            transformer, tokenizer, sampler_1, long_prompt, verbose=false, display_output=false, display_prompt=false
+            transformer,
+            tokenizer,
+            sampler_1,
+            long_prompt;
+            verbose=false,
+            display_output=false,
+            display_prompt=false,
         )
         @test typeof(output) == String
         @test !isempty(output)
@@ -36,7 +58,13 @@ using Test
     @testset "Special characters prompt" begin
         special_char_prompt = "#%^&*()_+123-=[]{}|?;':,./<>"
         output = generate(
-            transformer, tokenizer, sampler_1, special_char_prompt, verbose=false, display_output=false, display_prompt=false
+            transformer,
+            tokenizer,
+            sampler_1,
+            special_char_prompt;
+            verbose=false,
+            display_output=false,
+            display_prompt=false,
         )
         @test typeof(output) == String
         @test !isempty(output)
@@ -54,9 +82,9 @@ using Test
             transformer,
             tokenizer,
             sampler_1,
-            "",
-            verbose=false, 
-            display_output=false, 
+            "";
+            verbose=false,
+            display_output=false,
             display_prompt=false,
             max_steps=10,
         )
@@ -69,10 +97,10 @@ using Test
             transformer,
             tokenizer,
             sampler_1,
-            "The quick brown fox jumps over",
-            verbose=false, 
-            display_output=false, 
-            display_prompt=false
+            "The quick brown fox jumps over";
+            verbose=false,
+            display_output=false,
+            display_prompt=false,
         )
         @test endswith(output, "They play")
 
@@ -81,9 +109,9 @@ using Test
             transformer,
             tokenizer,
             sampler_1,
-            "The quick brown fox jumps over",
-            verbose=false, 
-            display_output=false, 
+            "The quick brown fox jumps over";
+            verbose=false,
+            display_output=false,
             display_prompt=false,
             max_steps=1000,
         )
@@ -99,7 +127,13 @@ using Test
             From that day on, the village was at peace and the memory of the dragon faded into legend. But"
 
             output = generate(
-                transformer, tokenizer, sampler_2, very_long_prompt, verbose=false, display_output=false, display_prompt=false
+                transformer,
+                tokenizer,
+                sampler_2,
+                very_long_prompt;
+                verbose=false,
+                display_output=false,
+                display_prompt=false,
             )
             @test typeof(output) == String
             @test !isempty(output)
@@ -108,9 +142,9 @@ using Test
                 transformer,
                 tokenizer,
                 sampler_2,
-                very_long_prompt,
-                verbose=false, 
-                display_output=false, 
+                very_long_prompt;
+                verbose=false,
+                display_output=false,
                 display_prompt=false,
                 max_steps=1000,
             )
