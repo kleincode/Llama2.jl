@@ -20,7 +20,7 @@ export Transformer,
     read_karpathy_config,
     read_karpathy,
     forward!
-export rmsnorm, softmax, swiglu
+export rmsnorm!, softmax!, swiglu!
 export generate
 
 end

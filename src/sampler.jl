@@ -114,16 +114,16 @@ function (sampler::Sampler{T})(logits::Vector{T}) where {T<:Real}
         # apply the temperature to the logits
         logits = logits ./ sampler.temperature
         # apply softmax to the logits to get the probabilities for next token
-        probs = softmax(logits)
+        softmax!(logits)
         # flip a (float) coin (this is our source of entropy for sampling)
         coin = rand(sampler.rng_state, T)
         # we sample from this distribution to get the next token
         if sampler.topp == 0.0f0 || sampler.topp == 1.0f0
             # simply sample from the predicted probability distribution
-            next = sample_mult(probs, coin)
+            next = sample_mult(logits, coin)
         else
             # top-p (nucleus) sampling, clamping the least likely tokens to zero
-            next = sample_topp(probs, sampler.topp, coin)
+            next = sample_topp(logits, sampler.topp, coin)
         end
     end
     return next
