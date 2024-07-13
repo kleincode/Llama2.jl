@@ -15,6 +15,8 @@ This is a port of Andrew Karpathy's [llama2.c](https://github.com/karpathy/llama
 - Inference, generation loop and chat loop
 - argmax, multinomial and top-p sampling
 - Tokenizer for encoding text to LLM input and decoding LLM output to text
+- Multi-threading in transformer forward function ([#37](https://github.com/kleincode/Llama2.jl/pull/37))
+- Compatibility tested with all of [Andrew Karpathy's models](https://github.com/karpathy/llama2.c/tree/master?tab=readme-ov-file#models)
 
 ## Getting started
 Add the package to your local environment via Pkg by running
