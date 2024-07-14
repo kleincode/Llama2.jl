@@ -117,7 +117,16 @@ function encode(tokenizer::Tokenizer, text::String, eos_token::Bool=false)
     for c in codeunits(text)
         # add token of the byte to the tokens list
         token = String(UInt8[c])
-        push!(tokens, tokenizer.token_to_index[token])
+        if haskey(tokenizer.token_to_index, token)
+            push!(tokens, tokenizer.token_to_index[token])
+        else
+            representation = "<0x" * uppercase(string(c, base=16, pad=2)) * ">"
+            if haskey(tokenizer.token_to_index, representation)
+                push!(tokens, tokenizer.token_to_index[representation])
+            else
+                throw(KeyError(token))
+            end
+        end
     end
 
     # merge the best consecutive pair each iteration
