@@ -6,4 +6,4 @@ transformer = Transformer{Float32}(config, weights, state)
 tokenizer = Tokenizer("bin/tokenizer/tokenizer.bin", config.vocab_size) # replace with path to tokenizer
 sampler = Sampler{Float32}(1.0f0, 0.9f0, 420)
 
-chat(transformer, tokenizer, sampler, cli_user_prompt = "Hello")
+chat(transformer, tokenizer, sampler)

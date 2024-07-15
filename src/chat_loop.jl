@@ -7,11 +7,18 @@ In llama2.c this is not safely implemented and more a proof of concept
 
 llama2.c correspondence Config (l.802-884)
 """
-function chat(transformer::Transformer{T}, tokenizer::Tokenizer{T}, sampler::Sampler{T}; cli_user_prompt::String = "", cli_system_prompt::String = "", steps::Integer = 256) where {T<:Real}
+function chat(
+    transformer::Transformer{T},
+    tokenizer::Tokenizer{T},
+    sampler::Sampler{T};
+    cli_user_prompt::String="",
+    cli_system_prompt::String="",
+    steps::Integer=256,
+) where {T<:Real}
     system_prompt::String = ""
     user_prompt::String = ""
     rendered_prompt::String = ""
-    prompt_tokens::Vector{Int} = ""
+    prompt_tokens::Vector{Int} = []
     num_prompt_tokens::Integer = 0
     user_idx::Integer = 1
 
@@ -23,35 +30,45 @@ function chat(transformer::Transformer{T}, tokenizer::Tokenizer{T}, sampler::Sam
 
     while pos <= steps
         # user's turn to contribute token to the dialog
-        if user_turn
+        if user_turn == true
+            """
             if pos == 1
-                if cli_system_prompt === nothing
+                if cli_system_prompt === ""
                     print("Enter system prompt (optional):")
                     system_prompt = readline()
                 else
                     system_prompt = cli_system_prompt
                 end
-            end
+            end"""
 
-            if pos == 1 && cli_user_prompt !== nothing
+            if pos == 1 && cli_user_prompt !== ""
                 user_prompt = cli_user_prompt
             else
                 println("User: ")
-                user_prompt = readline()
+                # wanted to use readline but that did not quite work
+                user_prompt = parse(UInt8, readline())
             end
             # render user/system prompts into the Llama 2 Chat schema
-            if pos == 1 && system_prompt !== nothing
-                rendered_prompt = "[INST] <<SYS>>\n" * system_prompt * "\n<</SYS>>\n\n" * user_prompt * "[/INST]"
+            rendered_prompt = "[INST]" * user_prompt * "[/INST]"
+            """
+            if pos == 1 && system_prompt !== ""
+                rendered_prompt =
+                    "[INST] <<SYS>>\n" *
+                    system_prompt *
+                    "\n<</SYS>>\n\n" *
+                    user_prompt *
+                    "[/INST]"
             else
                 rendered_prompt = "[INST]" * user_prompt * "[/INST]"
             end
+            """
             # encode the rendered prompt into tokens
             prompt_tokens = encode(tokenizer, rendered_prompt)
             num_prompt_tokens = length(prompt_tokens)
             user_idx = 1
             user_turn = false
             print("Assistant: ")
-        end 
+        end
 
         # determine the token to pass into the transformer next
         if user_idx < num_prompt_tokens
@@ -61,10 +78,12 @@ function chat(transformer::Transformer{T}, tokenizer::Tokenizer{T}, sampler::Sam
             token = next
         end
         # EOS token (=3) ends the Assistant turn
-        if token == 3 user_turn = true end 
+        if token == 3
+            user_turn = true
+        end
 
         # forward the transformer to get logits for the next token
-        logits= forward!(transformer, token, pos)
+        logits = forward!(transformer, token, pos)
         next = sampler(logits)
         pos += 1
 
@@ -73,7 +92,9 @@ function chat(transformer::Transformer{T}, tokenizer::Tokenizer{T}, sampler::Sam
             piece = decode(tokenizer, token, next)
             print(piece)
         end
-        if next == 3 print("\n") end
+        if next == 3
+            print("\n")
+        end
     end
-    print("\n")
+    return print("\n")
 end
