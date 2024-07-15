@@ -1,4 +1,5 @@
 using LinearAlgebra
+using Base.Threads
 
 """
 $(TYPEDEF)
@@ -214,7 +215,7 @@ julia> forward!(transformer, 5, 1)
         mul!(s.value_cache[:, pos, l], w.wv[:, :, l]', s.xb) # (kv_dim,) = (kv_dim, dim) * (n_heads * head_size,)
 
         # RoPE relative positional encoding: complex-valued rotate q and k in each head
-        for i in 1:2:dim
+        Threads.@threads for i in 1:2:dim
             head_dim = (i - 1) % head_size
             freq = 1.0f0 / (10000.0f0^(head_dim / head_size))
             val = (pos - 1) * freq
