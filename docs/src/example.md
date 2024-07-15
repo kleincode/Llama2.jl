@@ -25,7 +25,7 @@ tokenizer = Tokenizer("bin/tokenizer/tokenizer.bin", config.vocab_size) # replac
 sampler = Sampler{Float32}(1.0f0, 0.9f0, 420)
 
 prompt = "Once upon a"
-generate(transformer, tokenizer, sampler, prompt, false)
+generate(transformer, tokenizer, sampler, prompt)
 ```
 ```
 "Once upon a time, there was a little girl named Lily. She loved to help her mommy in the kitchen. One day, her mommy was making some yummy cookies and asked Lily to help her. Lily was so excited! \nShe put on her apron and stood on a stool so she could reach the cookies. Her mommy was so proud of her independent little girl. They mixed the ingredients together and put the cookies in the oven. \nAfter a little while, the cookies were ready and they smelled delicious. Lily's mommy let her have a slice and they both enjoyed the warm, tasty cookie. From that day on, Lily loved to help her mommy in the kitchen and help cook yummy treats."
