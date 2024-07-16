@@ -163,9 +163,12 @@ end
 $(TYPEDSIGNATURES)
 
 A single complete transformer forward pass for input token `token` at position `pos`, returning the output logits.
-`pos` is one-based, i.e. 1 <= pos <= seq_len.
-`token` is also a one-based token index.
+* `pos` is one-based, i.e. 1 <= `pos` <= `seq_len`.
+* `token` is also a one-based token index, 1 <= `token` <= `vocab_size`.
+* The output logits are a vector of length `vocab_size`, representing the predictions of the likelihood of each token (before softmax).
+
 This modifies the RunState of the transformer.
+To generate sequences using the transformer, call this method repeatedly with increasing `pos` values, starting from 1.
 
 llama2.c correspondence: forward (l. 231)
 
@@ -188,6 +191,7 @@ julia> forward!(transformer, 5, 1)
  -2.1009269
  -2.1007652
 ```
+
 """
 @views function forward!(
     transformer::Transformer{T}, token::Integer, pos::Integer
