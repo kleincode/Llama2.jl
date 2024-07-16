@@ -9,7 +9,7 @@ include("sampler.jl")
 include("math_llama.jl")
 include("read_karpathy.jl")
 include("generate.jl")
-include("chat_loop.jl")
+include("chat.jl")
 
 export Sampler, sample_topp, sample_argmax, sample_mult, softmax
 export Tokenizer, encode, decode

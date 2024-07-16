@@ -1,11 +1,11 @@
 """
 $(TYPEDSIGNATURES)
 
-Used to chat.
+*Experimental* chat loop.
 
-In llama2.c this is not safely implemented and more a proof of concept
+Just like in llama2.c, this is not safely implemented and more a proof of concept.
 
-llama2.c correspondence Config (l.802-884)
+llama2.c correspondence: chat (l.802-884)
 """
 function chat(
     transformer::Transformer{T},
@@ -15,33 +15,36 @@ function chat(
     cli_system_prompt::String="",
     steps::Integer=256,
 ) where {T<:Real}
-    system_prompt::String = ""
-    user_prompt::String = ""
-    rendered_prompt::String = ""
-    prompt_tokens::Vector{Int} = []
-    num_prompt_tokens::Integer = 0
-    user_idx::Integer = 1
+    system_prompt = ""
+    user_prompt = ""
+    rendered_prompt = ""
+    num_prompt_tokens = 0
+    prompt_tokens = Int[]
+    user_idx = 1
 
     # start the main loop 
-    user_turn::Bool = true   # stores next token in the sequence
-    next::Integer = 0        # stores current token
-    token::Integer = 0
-    pos::Integer = 1     # position in the sequence
+    user_turn = true   # user starts
+    next = 0        # will store next token in the sequence
+    token = 0 # stores current token
+    pos = 1     # position in the sequence
 
     while pos <= steps
         # user's turn to contribute token to the dialog
-        if user_turn == true
-            """
+        if user_turn
+            # get the (optional) system prompt at position 1
             if pos == 1
-                if cli_system_prompt === ""
-                    print("Enter system prompt (optional):")
+                if isempty(cli_system_prompt)
+                    # system prompt was not passed in, attempt to get it from stdin
+                    print("Enter system prompt (optional): ")
                     system_prompt = readline()
                 else
+                    # system prompt was passed in, use it
                     system_prompt = cli_system_prompt
                 end
-            end"""
+            end
 
-            if pos == 1 && cli_user_prompt !== ""
+            if pos == 1 && !isempty(cli_user_prompt)
+                # user prompt for position 0 was passed in, use it
                 user_prompt = cli_user_prompt
             else
                 println("User: ")
