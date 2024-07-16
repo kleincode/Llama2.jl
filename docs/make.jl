@@ -15,7 +15,11 @@ makedocs(;
     format=Documenter.HTML(;
         canonical="https://kleincode.github.io/Llama2.jl", edit_link="main", assets=String[]
     ),
-    pages=["Home" => "index.md", "Getting Started" => "example.md"],
+    pages=[
+        "Home" => "index.md",
+        "Getting Started" => "example.md",
+        "Performance" => "performance.md",
+    ],
 )
 
 deploydocs(; repo="github.com/kleincode/Llama2.jl", devbranch="main")
